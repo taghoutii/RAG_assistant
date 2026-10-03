@@ -1,0 +1,36 @@
+# Single source of truth for parameters. Sections are filled in as each phase needs them.
+seed: 42
+
+paths:
+  manifest: data/corpus_manifest.yaml
+  raw_dir: data/raw
+  processed_dir: data/processed
+  index_dir: data/index
+  eval_questions: eval/questions.jsonl
+  results_dir: reports/results
+  query_log: logs/queries.jsonl
+
+# Candidates from the brief; to be confirmed on this machine in Phase 3/4.
+embedding:
+  model: BAAI/bge-small-en-v1.5
+
+reranker:
+  model: cross-encoder/ms-marco-MiniLM-L-6-v2
+
+# See docs/DECISIONS.md, D-07. Free tiers only. Exact model IDs are chosen and verified in Phase 5/6.
+# API keys are read from .env (see .env.example), never stored here.
+llm:
+  provider: groq          # generator
+  model: null
+  fallback_provider: ollama   # unlimited offline fallback (installed later)
+  fallback_model: null
+
+judge:
+  provider: gemini        # Flash or Flash-Lite, free tier
+  model: null
+
+llm_calls:
+  cache_dir: cache/llm    # one cached response per (provider, model, prompt hash)
+  max_retries: 6          # on HTTP 429 / transient errors
+  backoff_initial_s: 2
+  backoff_max_s: 120
