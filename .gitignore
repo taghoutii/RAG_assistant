@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Virtual environment
+.venv/
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Secrets (API keys go in .env, never committed)
+.env
+
+# Data: the manifest and download script are committed, the downloaded/derived data is not
+data/raw/
+data/processed/
+data/index/
+
+# Runtime logs and LLM response cache
+logs/
+cache/
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# Local AI-assistant files, not part of the project
+CLAUDE.md
+RAG_PROJECT_BRIEF.md
+.claude/
