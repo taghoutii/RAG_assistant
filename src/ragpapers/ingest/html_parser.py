@@ -13,7 +13,7 @@ its full heading path:
 
 Block types: paragraph, equation, table, figure (caption only), list, code.
 
-Cleaning decisions (see docs/DECISIONS.md):
+Cleaning rules:
 - math is replaced by its LaTeX source, written as $...$
 - numeric citations ("[13]", "[3, 7]") are replaced by "[ref]"; author-year citations are kept
 - footnotes are moved to the end of their paragraph as "[Footnote: ...]"
