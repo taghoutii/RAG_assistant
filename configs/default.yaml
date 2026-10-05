@@ -7,6 +7,7 @@ paths:
   processed_dir: data/processed
   index_dir: data/index
   eval_questions: eval/questions.jsonl
+  eval_splits: eval/splits.json
   results_dir: reports/results
   query_log: logs/queries.jsonl
 
@@ -15,6 +16,20 @@ ingest:
   timeout_s: 60
   user_agent: "ml-papers-rag/0.1 (portfolio research project)"
 
+# The exact sentence the system must answer with when the corpus lacks evidence (brief, section 1).
+abstention_text: "I couldn't find sufficient evidence in the available sources."
+
+# Evaluation set rules (see eval/README.md).
+eval:
+  target_size: [60, 80]
+  target_mix: {factual: 0.55, comparison: 0.25, unanswerable: 0.20}
+  mix_tolerance: 0.05       # warn if a type's share is off its target by more than this
+  quote_min_words: 5        # shorter quotes match too many places
+  quote_max_words: 50       # longer quotes risk straddling chunk boundaries
+  quote_fuzzy_threshold: 90 # rapidfuzz partial_ratio (0-100) counted as "same text"
+  near_duplicate_threshold: 90
+  test_fraction: 0.5        # share of each question type held out as the test set
+
 # Candidates from the brief; to be confirmed on this machine in Phase 3/4.
 embedding:
   model: BAAI/bge-small-en-v1.5
@@ -22,7 +37,7 @@ embedding:
 reranker:
   model: cross-encoder/ms-marco-MiniLM-L-6-v2
 
-# See docs/DECISIONS.md, D-07. Free tiers only. Exact model IDs are chosen and verified in Phase 5/6.
+# Free tiers only. Exact model IDs are chosen and verified in Phase 5/6.
 # API keys are read from .env (see .env.example), never stored here.
 llm:
   provider: groq          # generator

@@ -2,7 +2,8 @@
 
 The only source is arXiv's own HTML at the pinned version: https://arxiv.org/html/<id>v<version>
 There is deliberately no fallback (no ar5iv, no PDF): a paper without arXiv HTML makes the script
-fail with a clear error, and must be replaced in the manifest (see docs/DECISIONS.md, D-14).
+fail with a clear error, and must be replaced in the manifest. PDFs are not used because their
+parse loses sections, equations and tables, and ar5iv only serves the latest version.
 
 Each paper produces <id>.html plus <id>.meta.json (source, URL, time, sha256).
 Papers that already have a meta file are skipped, so the script can be re-run safely.

@@ -36,3 +36,7 @@ Thumbs.db
 CLAUDE.md
 RAG_PROJECT_BRIEF.md
 .claude/
+
+# Private decision log (kept locally)
+docs/DECISIONS.md
+docs/DECISIONS.md
