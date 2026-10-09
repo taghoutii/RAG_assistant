@@ -22,13 +22,6 @@ NUMERIC_CITATION_INLINE = re.compile(r"\[\s*\d+(\s*[,-]\s*\d+)*\s*\]")
 
 
 def normalize_for_matching(text: str) -> str:
-    """Make a quote and a corpus text comparable, whichever page the quote was copied from.
-
-    Lowercase; straighten quotes and dashes; drop citation markers, both our "[ref]" placeholder
-    and numeric ones like "[12]" copied from the rendered arXiv page; drop the $ math delimiters
-    (so "$d$-dimensional" matches "d-dimensional"); collapse whitespace, including the space a
-    removed marker leaves before punctuation.
-    """
     text = unicodedata.normalize("NFKC", text).translate(QUOTE_CHARS).translate(DASH_CHARS)
     text = text.lower().replace("[ref]", " ").replace("$", "")
     text = NUMERIC_CITATION_INLINE.sub(" ", text)
