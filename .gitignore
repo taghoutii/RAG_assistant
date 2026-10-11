@@ -21,6 +21,7 @@ htmlcov/
 data/raw/
 data/processed/
 data/index/
+data/chunks/
 
 # Runtime logs and LLM response cache
 logs/
