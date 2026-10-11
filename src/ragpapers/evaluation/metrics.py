@@ -50,11 +50,6 @@ def credit_quotes(chunk_texts: list[str], quotes: list[str], threshold: float) -
 
 
 def recall_at_k(credited: list[list[int]], n_quotes: int, k: int) -> float:
-    """Fraction of the question's quotes credited within the top k chunks.
-
-    Raises ValueError if n_quotes == 0 (unanswerable questions have no recall) or k < 1.
-    If fewer than k chunks were retrieved, use the ones there are.
-    """
     if n_quotes == 0:
         raise ValueError("recall is undefined for a question without quotes")
     if k < 1:
@@ -65,10 +60,6 @@ def recall_at_k(credited: list[list[int]], n_quotes: int, k: int) -> float:
 
 
 def reciprocal_rank(credited: list[list[int]]) -> float:
-    """1 / rank of the first chunk that credits at least one quote (ranks start at 1).
-
-    Returns 0.0 if no chunk credits a quote.
-    """
     for rank, entry in enumerate(credited, start=1):
         if entry:  # a non-empty list: this chunk credits at least one quote
             return 1.0 / rank
@@ -76,17 +67,6 @@ def reciprocal_rank(credited: list[list[int]]) -> float:
 
 
 def ndcg_at_k(credited: list[list[int]], n_quotes: int, k: int) -> float:
-    """Normalized discounted cumulative gain over the top k chunks, with binary gains.
-
-    gain(rank) = 1 if the chunk at that rank credits at least one quote, else 0.
-    DCG@k  = sum over ranks r = 1..k of gain(r) / log2(r + 1)
-    IDCG@k = the DCG of an ideal ranking: min(k, n_quotes) gains of 1 at the top ranks.
-    nDCG@k = DCG@k / IDCG@k, in [0, 1].
-
-    Note: one chunk can contain two quotes but still has gain 1, so a ranking can find every quote
-    and still score below 1. That is accepted: the ideal assumes one chunk per quote.
-    Raises ValueError if n_quotes == 0 or k < 1.
-    """
     if n_quotes == 0:
         raise ValueError("nDCG is undefined for a question without quotes")
     if k < 1:

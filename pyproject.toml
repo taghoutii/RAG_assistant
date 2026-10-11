@@ -17,6 +17,11 @@ dependencies = [
     "lxml==6.1.3",
     # Phase 2: evaluation set (fuzzy quote matching)
     "rapidfuzz==3.14.6",
+    # Phase 3: embeddings (CPU PyTorch is installed by this; CI installs the CPU wheel first)
+    "sentence-transformers==6.1.0",
+    # Phase 3: indexes
+    "rank-bm25==0.2.2",
+    "qdrant-client==1.19.1",
 ]
 
 [project.optional-dependencies]
