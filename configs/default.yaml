@@ -77,6 +77,23 @@ retrieval_eval:
 
 reranker:
   model: cross-encoder/ms-marco-MiniLM-L-6-v2
+  batch_size: 32
+
+# Phase 4: one chunk set for every retriever, so rankings can be fused.
+retrieval:
+  chunk_size: 448
+  overlap: 64
+  rrf_k: 60                 # Reciprocal Rank Fusion constant (Cormack et al., 2009)
+  candidate_depth: null     # pool size N sent to the reranker; set from the depth study
+
+# Candidate-depth study (python -m ragpapers.evaluation.candidate_depth). The hybrid pool of size
+# N is the RRF fusion of BM25 top-N and dense top-N, cut to N. Decision rule, fixed before running:
+# take the smallest N whose step to the next depth gains less than `flatten_gain` hybrid Recall@N,
+# capped at the largest N whose p95 rerank latency is within `latency_budget_ms`.
+depth_study:
+  depths: [20, 50, 100]
+  flatten_gain: 0.05
+  latency_budget_ms: 2000
 
 # Free tiers only. Exact model IDs are chosen and verified in Phase 5/6.
 # API keys are read from .env (see .env.example), never stored here.
