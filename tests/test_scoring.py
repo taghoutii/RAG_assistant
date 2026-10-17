@@ -1,21 +1,14 @@
 import pytest
 
-from ragpapers.evaluation.run_retrieval import (
+from ragpapers.evaluation.scoring import (
     aggregate,
     bootstrap_ci,
-    make_table,
+    fmt,
     paired_difference,
-    run_setup,
     score_question,
+    write_result,
 )
 
-CFG = {
-    "ks": [1, 2],
-    "top_n": 2,
-    "quote_match_threshold": 90,
-    "bootstrap_samples": 200,
-    "split": "dev",
-}
 QUOTE = "the decoder attends over all encoded passages"
 
 
@@ -50,40 +43,11 @@ def test_aggregate_names_mrr():
     assert out["mrr"]["mean"] == 0.5
 
 
-def test_run_setup_and_table():
-    questions = [
-        {"id": "q1", "type": "factual", "question": "?", "evidence": [{"quote": QUOTE}]},
-        {
-            "id": "q2",
-            "type": "factual",
-            "question": "?",
-            "evidence": [{"quote": "absent quote text"}],
-        },
-    ]
-
-    def retrieve(query, k):
-        return [chunk("c1", QUOTE), chunk("c2", "other")][:k]
-
-    setup = {"retriever": "bm25", "chunk_size": 150, "overlap": 30, "include_appendix": True}
-    result = run_setup("bm25_test", setup, retrieve, questions, CFG, seed=0)
-    assert result["n_questions"] == 2
-    assert result["metrics"]["mrr"]["mean"] == 0.5
-    assert result["per_question"][0]["retrieved"] == ["c1", "c2"]
-
-    # make_table needs the k values it prints; reuse the result with renamed metrics.
-    for k in (3, 5, 10):
-        result["metrics"][f"recall@{k}"] = result["metrics"]["recall@2"]
-    result["metrics"]["ndcg@10"] = result["metrics"]["ndcg@2"]
-    table = make_table([result])
-    assert "| bm25 | words | 150 / 30 | yes |" in table  # old results have no "unit"
-    assert "2 answerable" in table
-
-
-def fake_result(name, recalls, reference=False):
+def fake_result(name, recalls):
     per_question = [
         {"id": f"q{i}", "scores": {"recall@10": r, "rr": r}} for i, r in enumerate(recalls)
     ]
-    return {"name": name, "per_question": per_question, "reference": reference}
+    return {"name": name, "per_question": per_question}
 
 
 def test_paired_difference_on_the_same_questions():
@@ -98,3 +62,15 @@ def test_paired_difference_on_the_same_questions():
 def test_paired_difference_refuses_different_question_sets():
     with pytest.raises(ValueError):
         paired_difference(fake_result("a", [1.0]), fake_result("b", [1.0, 0.0]), "mrr", 10, 0)
+
+
+def test_fmt_with_and_without_interval():
+    metric = {"mean": 0.6111, "ci_low": 0.4611, "ci_high": 0.7722}
+    assert fmt(metric) == "0.611"
+    assert fmt(metric, with_ci=True) == "0.611 [0.46, 0.77]"
+
+
+def test_write_result_path(tmp_path):
+    path = write_result({"phase": "retrieval", "name": "hybrid", "x": 1}, tmp_path)
+    assert path == tmp_path / "retrieval" / "hybrid.json"
+    assert '"x": 1' in path.read_text(encoding="utf-8")

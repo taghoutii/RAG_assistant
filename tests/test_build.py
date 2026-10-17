@@ -24,9 +24,8 @@ from ragpapers.config import load_config
 HEADER = {"format": "{short_title} > {section}", "max_tokens": 6}
 
 
-def test_config_name_keeps_the_phase3_word_names():
-    assert config_name("tokens", 256, 64) == "tokens256_ov64"
-    assert config_name("words", 150, 30) == "size150_ov30"
+def test_config_name():
+    assert config_name({"chunk_size": 448, "overlap": 64}) == "tokens448_ov64"
 
 
 def test_short_title_is_the_part_before_the_colon():
@@ -117,7 +116,7 @@ def test_committed_config_is_valid(config):
 
 
 def test_chunk_size_over_the_budget_is_rejected(config):
-    config["chunking"]["compare"] = [{"chunk_size": 479, "overlap": 64}]  # budget is 478
+    config["chunking"]["chunk_size"] = 479  # budget is 478
     with pytest.raises(ValueError, match="body budget of 478"):
         validate_chunking_config(config, special_tokens=2)
 
@@ -128,10 +127,8 @@ def test_tokenizer_must_match_the_embedding_model(config):
         validate_chunking_config(config, special_tokens=2)
 
 
-@pytest.mark.parametrize(
-    ("key", "value"), [("unit", "characters"), ("compare", [{"chunk_size": 64, "overlap": 64}])]
-)
-def test_bad_unit_or_overlap_is_rejected(config, key, value):
-    config["chunking"][key] = value
-    with pytest.raises(ValueError):
+@pytest.mark.parametrize("overlap", [64, 100, -1])
+def test_bad_overlap_is_rejected(config, overlap):
+    config["chunking"]["chunk_size"], config["chunking"]["overlap"] = 64, overlap
+    with pytest.raises(ValueError, match="overlap"):
         validate_chunking_config(config, special_tokens=2)

@@ -1,4 +1,4 @@
-"""Write the chunk files used by every index: data/chunks/<config>.jsonl.
+"""Write the chunk file used by every index: data/chunks/tokens<size>_ov<overlap>.jsonl.
 
 Two texts are indexed per chunk; the chunk `text` itself is what quote matching, citations and
 display use:
@@ -15,21 +15,19 @@ import json
 import sys
 from pathlib import Path
 
-from ragpapers.chunking.chunker import chunk_paper, word_count
+from ragpapers.chunking.chunker import chunk_paper
 from ragpapers.chunking.tokens import TokenCounter
 from ragpapers.config import REPO_ROOT, load_config
 from ragpapers.corpus import load_corpus
 from ragpapers.evaluation.matching import contains_quote
 from ragpapers.ingest.manifest import load_manifest
 
-UNITS = ("tokens", "words")
 ELLIPSIS = " …"
 
 
-def config_name(unit: str, chunk_size: int, overlap: int) -> str:
-    """'tokens256_ov64' for token sizing; 'size150_ov30' (the Phase 3 name) for word sizing."""
-    prefix = "tokens" if unit == "tokens" else "size"
-    return f"{prefix}{chunk_size}_ov{overlap}"
+def config_name(chunking: dict) -> str:
+    """Name of the chunk set, e.g. 'tokens448_ov64' (also names its embeddings and collection)."""
+    return f"tokens{chunking['chunk_size']}_ov{chunking['overlap']}"
 
 
 # --- index texts -------------------------------------------------------------------------------
@@ -129,8 +127,6 @@ def quotes_cut(chunks: list[dict], questions: list[dict], threshold: float) -> l
 def validate_chunking_config(config: dict, special_tokens: int) -> None:
     """Fail early on settings that cannot work. Raises ValueError with the reason."""
     chunking = config["chunking"]
-    if chunking["unit"] not in UNITS:
-        raise ValueError(f"chunking.unit must be one of {UNITS}, got {chunking['unit']!r}")
     if chunking["tokenizer"] != config["embedding"]["model"]:
         raise ValueError(
             f"chunking.tokenizer ({chunking['tokenizer']}) must be the embedding model "
@@ -139,16 +135,15 @@ def validate_chunking_config(config: dict, special_tokens: int) -> None:
     budget = (
         chunking["max_sequence_tokens"] - special_tokens - chunking["dense_header"]["max_tokens"]
     )
-    for setting in chunking["compare"]:
-        size, overlap = setting["chunk_size"], setting["overlap"]
-        if not 0 <= overlap < size:
-            raise ValueError(f"need 0 <= overlap < chunk_size, got {setting}")
-        if chunking["unit"] == "tokens" and size > budget:
-            raise ValueError(
-                f"chunk_size {size} exceeds the body budget of {budget} tokens "
-                f"({chunking['max_sequence_tokens']} - {special_tokens} special - "
-                f"{chunking['dense_header']['max_tokens']} header)"
-            )
+    size, overlap = chunking["chunk_size"], chunking["overlap"]
+    if not 0 <= overlap < size:
+        raise ValueError(f"need 0 <= overlap < chunk_size, got {size}/{overlap}")
+    if size > budget:
+        raise ValueError(
+            f"chunk_size {size} exceeds the body budget of {budget} tokens "
+            f"({chunking['max_sequence_tokens']} - {special_tokens} special - "
+            f"{chunking['dense_header']['max_tokens']} header)"
+        )
 
 
 def write_chunks(path: Path, chunks: list[dict]) -> None:
@@ -162,9 +157,8 @@ def load_chunks(path: Path) -> list[dict]:
         return [json.loads(line) for line in f if line.strip()]
 
 
-def chunks_path(config: dict, unit: str, chunk_size: int, overlap: int) -> Path:
-    name = config_name(unit, chunk_size, overlap)
-    return REPO_ROOT / config["paths"]["chunks_dir"] / f"{name}.jsonl"
+def chunks_path(config: dict) -> Path:
+    return REPO_ROOT / config["paths"]["chunks_dir"] / f"{config_name(config['chunking'])}.jsonl"
 
 
 def main() -> None:
@@ -174,7 +168,6 @@ def main() -> None:
     chunking = config["chunking"]
     counter = TokenCounter(chunking["tokenizer"])
     validate_chunking_config(config, counter.special_tokens)
-    count_tokens = counter if chunking["unit"] == "tokens" else word_count
 
     paper_ids = [p.arxiv_id for p in load_manifest(REPO_ROOT / config["paths"]["manifest"])]
     corpus = load_corpus(REPO_ROOT / config["paths"]["processed_dir"], paper_ids)
@@ -182,25 +175,22 @@ def main() -> None:
     n_quotes = sum(1 + len(ev.get("alternatives", [])) for q in questions for ev in q["evidence"])
     threshold = config["retrieval_eval"]["quote_match_threshold"]
 
-    failed = False
-    for setting in chunking["compare"]:
-        size, overlap = setting["chunk_size"], setting["overlap"]
-        chunks = build_chunks(corpus, size, overlap, count_tokens, chunking["dense_header"])
-        path = chunks_path(config, chunking["unit"], size, overlap)
-        write_chunks(path, chunks)
+    chunks = build_chunks(
+        corpus, chunking["chunk_size"], chunking["overlap"], counter, chunking["dense_header"]
+    )
+    path = chunks_path(config)
+    write_chunks(path, chunks)
 
-        over = over_budget(chunks, counter, counter.special_tokens, chunking["max_sequence_tokens"])
-        cut = quotes_cut(chunks, questions, threshold)
-        longest = max(counter(dense_text(c)) + counter.special_tokens for c in chunks)
-        print(
-            f"{path.name}: {len(chunks)} chunks ({sum(c['is_appendix'] for c in chunks)} from "
-            f"appendices); longest embedded sequence {longest} tokens"
-        )
-        print(f"  {len(over)} chunks over the {chunking['max_sequence_tokens']}-token limit")
-        print(f"  {len(cut)}/{n_quotes} eval quotes not inside any single chunk {cut or ''}")
-        failed = failed or bool(over)
-
-    if failed and chunking["unit"] == "tokens":
+    over = over_budget(chunks, counter, counter.special_tokens, chunking["max_sequence_tokens"])
+    cut = quotes_cut(chunks, questions, threshold)
+    longest = max(counter(dense_text(c)) + counter.special_tokens for c in chunks)
+    print(
+        f"{path.name}: {len(chunks)} chunks ({sum(c['is_appendix'] for c in chunks)} from "
+        f"appendices); longest embedded sequence {longest} tokens"
+    )
+    print(f"  {len(over)} chunks over the {chunking['max_sequence_tokens']}-token limit")
+    print(f"  {len(cut)}/{n_quotes} eval quotes not inside any single chunk {cut or ''}")
+    if over:
         sys.exit("Token budget violated: see the chunks listed above.")
 
 

@@ -23,14 +23,14 @@ def elapsed_ms(start: float) -> float:
 
 
 def load_indexes(config: dict) -> dict:
-    """Chunks, BM25 and dense indexes for the `retrieval` chunk set (embeddings from cache).
+    """Chunks, BM25 and dense indexes for the configured chunk set (embeddings from cache).
 
     Returns a dict with "chunks", "by_id", "name", "bm25", "dense", "embedder" and "client"
     (close the client when done: it holds the local Qdrant lock).
     """
-    ret, chunking, emb = config["retrieval"], config["chunking"], config["embedding"]
-    name = config_name(chunking["unit"], ret["chunk_size"], ret["overlap"])
-    chunks = load_chunks(chunks_path(config, chunking["unit"], ret["chunk_size"], ret["overlap"]))
+    emb = config["embedding"]
+    name = config_name(config["chunking"])
+    chunks = load_chunks(chunks_path(config))
     embedder = Embedder(emb["model"], emb["batch_size"])
     cache = REPO_ROOT / config["index"]["embeddings_dir"] / f"{name}.npy"
     vectors = load_or_compute_embeddings(chunks, embedder.encode_passages, emb["model"], cache)

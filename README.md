@@ -3,7 +3,7 @@
 An evaluated retrieval-augmented question-answering system over a curated corpus of AI/ML research papers.
 Answers cite the exact passages they rely on, and the system abstains when the corpus lacks evidence.
 
-> Work in progress. The full README (results table, architecture, findings) is written in Phase 8.
+> Work in progress. The full README (architecture, generation results, findings) is written in Phase 8.
 
 Built in plain Python, deliberately without LangChain or LlamaIndex, so every step of the pipeline is visible.
 
@@ -32,9 +32,28 @@ If `Activate.ps1` is blocked, run once: `Set-ExecutionPolicy -Scope CurrentUser 
   The chunk text without any header is what is quoted, cited and checked against the evaluation set.
 
 ```powershell
-python -m ragpapers.chunking.build            # chunk files + token-budget and quote checks
-python -m ragpapers.evaluation.run_retrieval  # indexes + retrieval evaluation on the dev split
+python -m ragpapers.chunking.build                 # chunk file + token-budget and quote checks
+python -m ragpapers.evaluation.evaluate_retrieval  # indexes + the retrieval table on the dev split
 ```
+
+## Retrieval results (dev)
+
+30 answerable dev questions; each setup returns its top 10 chunks. Relevance is judged against the gold evidence quotes and their approved alternatives (see [eval/README.md](eval/README.md)). Brackets: 95% bootstrap interval over questions. Full table with paired differences: [reports/retrieval.md](reports/retrieval.md).
+
+| Setup | Recall@3 | Recall@5 | Recall@10 | MRR | nDCG@10 | Latency p50 |
+|---|---|---|---|---|---|---|
+| BM25 | 0.494 [0.33, 0.65] | 0.517 [0.36, 0.67] | 0.656 [0.51, 0.79] | 0.499 [0.35, 0.64] | 0.443 [0.31, 0.57] | 8 ms |
+| Dense | 0.444 [0.28, 0.62] | 0.517 [0.36, 0.68] | 0.644 [0.51, 0.80] | 0.400 [0.27, 0.54] | 0.362 [0.26, 0.47] | 23 ms |
+| **Hybrid (RRF)** | 0.511 [0.34, 0.68] | **0.611** [0.46, 0.77] | **0.772** [0.63, 0.90] | **0.533** [0.39, 0.68] | **0.486** [0.36, 0.61] | 32 ms |
+| Hybrid + reranker | 0.517 [0.36, 0.68] | 0.594 [0.43, 0.75] | 0.678 [0.53, 0.83] | 0.501 [0.36, 0.65] | 0.449 [0.33, 0.57] | 1375 ms |
+
+Latencies measured on an Intel i7-11370H laptop, CPU only.
+
+## Key design decisions
+
+- **448-token chunks with 64-token overlap:** chunks large enough to carry complete passages, kept under the 478-token body budget (512-token window minus 2 special tokens and the 32-token header), so no chunk is truncated when embedded.
+- **Hybrid retrieval with Reciprocal Rank Fusion, k = 60:** BM25 and dense rankings are fused by rank only, so their incompatible score scales never meet; k = 60 is the standard value (Cormack et al., 2009), with nothing to tune.
+- **No reranker in the final system:** the MiniLM cross-encoder (`cross-encoder/ms-marco-MiniLM-L-6-v2`, over the top 20 fused chunks) does not beat plain hybrid and adds over a second per query on CPU; it stays in the table as a measured alternative.
 
 ## Models (free tiers only)
 

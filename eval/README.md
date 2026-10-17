@@ -8,7 +8,7 @@ chosen to suit it.
 |---|---|
 | `questions.jsonl` | The evaluation set: one question per line, each one reviewed before inclusion. |
 | `splits.json` | The frozen dev/test split (generated once, never edited). |
-| `candidates.jsonl` | Draft questions proposed by the assistant. Each needs approval before it is moved into `questions.jsonl`. |
+| `judge_sample.json` | The 20 dev questions whose answers are hand-graded to validate the LLM judge (drawn with a fixed seed before any judging). |
 
 ## Format
 
@@ -42,26 +42,7 @@ A quote is how the evaluation recognises a relevant chunk, whatever the chunking
 
 ## Alternative quotes
 
-A paper often states a fact in more than one place (abstract, introduction, results). With a single
-quote, a chunk that states the fact in other words would count as irrelevant. Each evidence item may
-therefore list up to 3 `alternatives`: other verbatim spans of the **same paper** that state the
-**same fact** (5–50 words, one block, no tables, no second-hand restatements from other papers).
-
-```json
-"evidence": [{"paper_id": "2002.08909", "quote": "...", "alternatives": ["...", "..."]}]
-```
-
-An evidence item counts as found, once, at the first retrieved chunk containing its quote **or** any
-alternative; recall still divides by the number of evidence items. Alternatives are chosen blind to
-retrieval: candidates come only from the paper's text and the question's reference answer, and each
-one is approved by hand.
-
-```powershell
-python -m ragpapers.evaluation.alternates candidates   # eval/alternates/batch_XX.md (drafts, gitignored)
-# tick "- [x]" the candidates that state the same fact, trim or extend in place if needed
-python -m ragpapers.evaluation.alternates apply        # writes the approved ones into questions.jsonl
-python -m ragpapers.evaluation.questions               # re-validate
-```
+An evidence item may also list up to 3 `alternatives`: other verbatim spans of the **same paper** that state the **same fact**, so that a chunk stating it in other words also counts (once per item; recall still divides by the number of items). They were chosen blind to retrieval output, from candidates drawn only from the paper's text and the question's reference answer, and selected by Claude Code under a fixed strict same-fact rule, then spot-checked by the project author. The validator checks every alternative like a quote.
 
 ## Question mix
 
@@ -83,7 +64,6 @@ python -m ragpapers.evaluation.find_quote "learning rate" --paper 2310.06825 --t
 
 # 2. Validate as you write: schema, quotes found in the corpus, duplicates, size, type mix
 python -m ragpapers.evaluation.questions
-python -m ragpapers.evaluation.questions eval/candidates.jsonl
 
 # 3. Once the set is final and has 0 errors: freeze the stratified dev/test split (once!)
 python -m ragpapers.evaluation.split
