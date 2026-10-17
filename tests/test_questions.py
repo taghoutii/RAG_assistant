@@ -159,12 +159,9 @@ def test_load_questions_reports_line_number(tmp_path):
         load_questions(path)
 
 
-@pytest.mark.parametrize("name", ["questions.jsonl", "candidates.jsonl"])
-def test_committed_eval_files_have_no_schema_errors(name):
+def test_committed_eval_set_has_no_schema_errors():
     """Runs in CI too: schema only, because the parsed corpus is not committed."""
-    path = REPO_ROOT / "eval" / name
-    if not path.exists():
-        pytest.skip(f"{name} not written yet")
+    path = REPO_ROOT / "eval" / "questions.jsonl"
     paper_ids = {p.arxiv_id for p in load_manifest(REPO_ROOT / "data" / "corpus_manifest.yaml")}
     issues = validate(load_questions(path), paper_ids, CFG, ABSTAIN, corpus=None)
     assert errors(issues) == []

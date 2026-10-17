@@ -1,11 +1,10 @@
-# Single source of truth for parameters. Sections are filled in as each phase needs them.
+# Single source of truth for parameters.
 seed: 42
 
 paths:
   manifest: data/corpus_manifest.yaml
   raw_dir: data/raw
   processed_dir: data/processed
-  index_dir: data/index
   chunks_dir: data/chunks
   eval_questions: eval/questions.jsonl
   eval_splits: eval/splits.json
@@ -17,7 +16,7 @@ ingest:
   timeout_s: 60
   user_agent: "ml-papers-rag/0.1 (portfolio research project)"
 
-# The exact sentence the system must answer with when the corpus lacks evidence (brief, section 1).
+# The exact sentence the system must answer with when the corpus lacks evidence.
 abstention_text: "I couldn't find sufficient evidence in the available sources."
 
 # Evaluation set rules (see eval/README.md).
@@ -32,22 +31,19 @@ eval:
   near_duplicate_threshold: 90
   test_fraction: 0.5        # share of each question type held out as the test set
 
-# Section-aware chunking. Sizes are counted in `unit`: "tokens" = the embedding model's own
-# tokenizer (must equal embedding.model), or "words" (the original Phase 3 sizing). Every entry in
-# `compare` gets its own chunk file and indexes. Chunks always include appendices.
+# Section-aware chunking, sized in tokens of the embedding model's own tokenizer (must equal
+# embedding.model). Chunks include appendices.
 # Hard guarantee (checked by the build): dense header + chunk + special tokens <= 512, so the
 # body budget is 512 - 2 special - 32 header = 478 tokens.
 # BM25 indexes the FULL header (title > full section path); the dense model gets the short one.
 chunking:
-  unit: tokens
+  chunk_size: 448
+  overlap: 64
   tokenizer: BAAI/bge-small-en-v1.5
   max_sequence_tokens: 512
   dense_header:
     format: "{short_title} > {section}"   # short title = before the first ":"; section = last heading
     max_tokens: 32
-  compare:
-    - {chunk_size: 256, overlap: 64}
-    - {chunk_size: 448, overlap: 64}
 
 bm25:
   k1: 1.5
@@ -56,70 +52,47 @@ bm25:
 embedding:
   model: BAAI/bge-small-en-v1.5
   batch_size: 32
-  # Recommended by the model card for short queries. Phase 3 found no measurable effect on dev,
-  # so it is not used; kept here for reference.
-  query_instruction: "Represent this sentence for searching relevant passages: "
 
 index:
   qdrant_path: data/index/qdrant
   embeddings_dir: data/index/embeddings
 
-# Retrieval evaluation (answerable dev questions only; unanswerable ones have no quotes).
+# Hybrid retrieval: BM25 + dense fused with Reciprocal Rank Fusion.
+retrieval:
+  rrf_k: 60                 # Reciprocal Rank Fusion constant (Cormack et al., 2009)
+  fusion_depth: 100         # candidates each retriever contributes to RRF
+  rerank_depth: 20          # M: top fused candidates the cross-encoder rescores
+  use_reranker: false       # the final system answers from plain hybrid retrieval
+
+reranker:
+  model: cross-encoder/ms-marco-MiniLM-L-6-v2
+  batch_size: 32
+
+# Retrieval evaluation (answerable dev questions only; unanswerable ones have no evidence).
 retrieval_eval:
   split: dev
   ks: [3, 5, 10]
   top_n: 10                   # chunks retrieved per question (= largest k)
   quote_match_threshold: 90   # same rapidfuzz score as the eval-set validator
   bootstrap_samples: 1000     # resampling questions for 95% confidence intervals
-  # Word-based Phase 3 results shown as reference rows next to the token-based ones.
-  reference_results:
-    - phase3/bm25_size150_ov30_appx
-    - phase3/dense_size150_ov30_appx
-
-reranker:
-  model: cross-encoder/ms-marco-MiniLM-L-6-v2
-  batch_size: 32
-
-# Phase 4: one chunk set for every retriever, so rankings can be fused.
-retrieval:
-  chunk_size: 448
-  overlap: 64
-  rrf_k: 60                 # Reciprocal Rank Fusion constant (Cormack et al., 2009)
-  fusion_depth: 100         # candidates each retriever contributes to RRF
-  rerank_depth: 20          # M: top fused candidates the cross-encoder rescores; set by the study
-  use_reranker: false       # the follow-up found no reranker that beats plain hybrid on dev
-
-# Rerank-depth study (python -m ragpapers.evaluation.candidate_depth). Answer quality over speed.
-# Rule, fixed before reranked quality was measured: M = the smallest value in `rerank_depths`
-# whose reranked `metric` on dev is within `tolerance` of the best M (ties go to the smaller M).
-# Latency is measured and reported, but not used to choose.
-depth_study:
-  rerank_depths: [20, 50, 100]
-  metric: recall@5
-  tolerance: 0.02
-
-# Questions reported as diagnostics only (never used to choose a setting).
-diagnostic_questions: [q114, q307]
 
 # Free tiers only. API keys are read from .env (see .env.example), never stored here.
-# Limits are per model and were checked on the free-tier consoles (Oct 2026); the client must
-# stay under all four. Llama models left Groq's free tier on 2026-08-16.
+# Limits are per model (free-tier consoles, Oct 2026); the client must stay under all of them.
 llm:
   provider: groq          # generator
   model: openai/gpt-oss-120b
-  reasoning_effort: low   # reasoning tokens count against the quota (token budget assumed "low")
+  reasoning_effort: low   # reasoning tokens count against the quota
   limits: {rpm: 30, rpd: 1000, tpm: 8000, tpd: 200000}
   fallback_provider: ollama   # unlimited offline fallback (installed later)
   fallback_model: null
 
 generation:
-  context_k: 8            # top-k plain-hybrid chunks sent to the generator (recall@8 = 0.722 on dev)
+  context_k: 8            # top-k plain-hybrid chunks sent to the generator
 
 # Judge on a different provider and model family than the generator (own quota, less
-# self-preference). Gemini Flash models are 20 RPD on the free tier, too few for a 37-call run.
-# Fallback rule, fixed before any grading: if the primary judge's agreement with the 20 hand
-# grades is poor, the fallback is evaluated on the same 20 answers and the judge that agrees
-# better with the hand grades is kept.
+# self-preference). Fallback rule, fixed before any grading: if the primary judge's agreement
+# with the 20 hand grades (eval/judge_sample.json) is poor, the fallback is evaluated on the same
+# 20 answers and the judge that agrees better with the hand grades is kept.
 judge:
   provider: gemini
   model: gemini-3.5-flash-lite
@@ -133,24 +106,3 @@ llm_calls:
   max_retries: 6          # on HTTP 429 / transient errors
   backoff_initial_s: 2
   backoff_max_s: 120
-
-# Reranker follow-up (python -m ragpapers.evaluation.reranker_followup). Rule, fixed before running:
-# pick the variant with the best reranked Recall@5 (ties: a, b, c); adopt it only if its Recall@5
-# beats plain hybrid's (Phase 4 table) by at least `min_gain`, otherwise keep plain hybrid.
-reranker_followup:
-  models:
-    a: cross-encoder/ms-marco-MiniLM-L-6-v2
-    b: BAAI/bge-reranker-base
-  hybrid_recall5: 0.578
-  min_gain: 0.03
-  hand_check_n: 5     # questions where (a) lost the most reciprocal rank, reported only
-
-# Alternative evidence quotes (python -m ragpapers.evaluation.alternates). Candidate filter, fixed
-# before the first batch: sentences of the evidence item's own paper sharing >= min_shared_words
-# content words with the reference answer AND >= min_shared_fraction of them. Never from retrieval.
-alternates:
-  dir: eval/alternates          # batch files for approval (gitignored drafts)
-  min_shared_words: 4
-  min_shared_fraction: 0.2
-  same_text_threshold: 90       # a sentence this close to the original quote is the quote itself
-  batch_size: 10                # questions per batch file

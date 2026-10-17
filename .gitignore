@@ -40,7 +40,3 @@ RAG_PROJECT_BRIEF.md
 
 # Private decision log (kept locally)
 docs/DECISIONS.md
-docs/DECISIONS.md
-
-# Draft candidate batches for alternative quotes (approved ones go into questions.jsonl)
-eval/alternates/

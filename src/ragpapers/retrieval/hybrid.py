@@ -1,8 +1,13 @@
-"""Hybrid retrieval: Reciprocal Rank Fusion (RRF) of several rankings, BM25 + dense.
-RRF ignores the retrievers' raw scores and uses only each chunk's RANK in each list:
+"""Hybrid retrieval: Reciprocal Rank Fusion (RRF) of several rankings, e.g. BM25 + dense.
+
+RRF ignores the retrievers' raw scores (BM25 scores and cosine similarities are on unrelated
+scales) and uses only each chunk's RANK in each list:
 
     score(chunk) = sum over the lists that contain it of  1 / (rrf_k + rank)
+
 with rank starting at 1. A chunk missing from a list gets nothing from that list.
+Reference: Cormack, Clarke and Buettcher (2009), "Reciprocal Rank Fusion outperforms Condorcet
+and individual Rank Learning Methods", which uses rrf_k = 60.
 """
 
 
