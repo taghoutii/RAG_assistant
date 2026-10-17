@@ -1,83 +1,48 @@
-"""Phase 4 candidate-depth study: how many first-stage candidates should the reranker see?
+"""Phase 4 rerank-depth study: how many fused candidates should the cross-encoder rescore?
 
-A reranker can only promote chunks that are in its pool, so the pool size N caps what it can
-recover, while its cost grows linearly with N. For each N in `depth_study.depths`:
-- first-stage Recall@N on the answerable dev questions, for BM25, dense, and the hybrid pool
-  (RRF of BM25 top-N and dense top-N, cut to N: exactly N chunks go to the reranker);
-- cross-encoder latency to rerank the hybrid pool, on every dev question (latency needs no
-  evidence, so unanswerable questions count too). The model is warmed up first, and depths are
-  interleaved per question so that slow and fast moments of the machine affect them equally.
-The depth is then chosen with the rule written in configs/default.yaml (`depth_study`), which was
-fixed before the study ran.
+Fusion depth is fixed: RRF of BM25 top-`fusion_depth` and dense top-`fusion_depth`. For each
+rerank depth M in `depth_study.rerank_depths`, the top M fused chunks are reranked and the
+reranked top-n (n = `retrieval_eval.top_n`) is scored on the answerable dev questions:
+Recall@k, MRR and nDCG@k, plus the first-stage recall of the pool (the reranker's ceiling).
+Rerank latency is measured on every dev question (latency needs no evidence), after a warm-up,
+with the M values interleaved per question. It is reported, not used to choose.
 
-Usage (PowerShell, from the repo root; needs the 448/64 chunks and embeddings from Phase 3):
+M is chosen with the rule in configs/default.yaml (`depth_study`), fixed before this ran.
+An earlier study on first-stage recall and latency only is kept in
+reports/phase4_candidate_depth_first_stage.md.
+
+Usage (PowerShell, from the repo root, on an idle machine; needs the Phase 3 chunks/embeddings):
     python -m ragpapers.evaluation.candidate_depth
 """
 
 import json
 import statistics
-import time
 from datetime import UTC, datetime
 from itertools import pairwise
 
-from qdrant_client import QdrantClient
-
-from ragpapers.chunking.build import chunks_path, config_name, dense_text, load_chunks
 from ragpapers.config import REPO_ROOT, load_config
+from ragpapers.evaluation.hardware import hardware_info, hardware_line
 from ragpapers.evaluation.metrics import credit_quotes, recall_at_k
-from ragpapers.evaluation.questions import load_questions
-from ragpapers.evaluation.run_retrieval import bootstrap_ci, paired_difference
+from ragpapers.evaluation.questions import evidence_groups, load_questions
+from ragpapers.evaluation.run_retrieval import aggregate, paired_difference, score_question
 from ragpapers.evaluation.split import load_split
-from ragpapers.index.bm25 import BM25Index
-from ragpapers.index.dense import DenseIndex, Embedder, load_or_compute_embeddings
-from ragpapers.retrieval.hybrid import reciprocal_rank_fusion
+from ragpapers.retrieval.pipeline import first_stage, load_indexes, rerank_top
 from ragpapers.retrieval.rerank import Reranker
 
 PHASE = "phase4_depth"
-RETRIEVERS = ("bm25", "dense", "hybrid")
+FLOAT_SLACK = 1e-9  # so that "within 0.02" is not broken by 0.80 - 0.78 = 0.020000000000000018
 
 
-def hybrid_pool(bm25_ids: list[str], dense_ids: list[str], n: int, rrf_k: int) -> list[str]:
-    """The reranker's pool at depth n: RRF of each retriever's top n, cut to n chunk IDs."""
-    fused = reciprocal_rank_fusion([bm25_ids[:n], dense_ids[:n]], rrf_k=rrf_k)
-    return [chunk_id for chunk_id, _ in fused[:n]]
+def pool_recall(pool_texts: list[str], quote_groups: list[list[str]], threshold: float) -> float:
+    """Share of the question's evidence groups found anywhere in the pool."""
+    credited = credit_quotes(pool_texts, quote_groups, threshold)
+    return recall_at_k(credited, len(quote_groups), k=max(len(pool_texts), 1))
 
 
-def pool_recall(pool_texts: list[str], quotes: list[str], threshold: float) -> float:
-    """Share of the question's evidence quotes found anywhere in the pool."""
-    credited = credit_quotes(pool_texts, quotes, threshold)
-    return recall_at_k(credited, len(quotes), k=max(len(pool_texts), 1))
-
-
-def p95(values: list[float]) -> float:
-    return statistics.quantiles(values, n=20, method="inclusive")[18]
-
-
-def choose_depth(
-    depths: list[int],
-    recall: dict[int, float],
-    p95_ms: dict[int, float],
-    flatten_gain: float,
-    latency_budget_ms: float,
-) -> tuple[int, str]:
-    """Apply the pre-registered rule; returns (depth, one-line reason).
-
-    flattening point = the smallest depth whose step to the next depth gains < flatten_gain
-    (the largest depth if recall never flattens); the choice is capped at the largest depth
-    whose p95 latency is within budget (the smallest depth if none is).
-    """
-    depths = sorted(depths)
-    flat = next(
-        (n for n, nxt in pairwise(depths) if recall[nxt] - recall[n] < flatten_gain),
-        depths[-1],
-    )
-    within = [n for n in depths if p95_ms[n] <= latency_budget_ms]
-    if not within:
-        return depths[0], f"no depth within {latency_budget_ms:.0f} ms p95: smallest depth"
-    cap = max(within)
-    if flat <= cap:
-        return flat, f"recall flattens after N={flat} (next step gains < {flatten_gain})"
-    return cap, f"recall still rising, but N>{cap} exceeds {latency_budget_ms:.0f} ms p95"
+def choose_rerank_depth(values: dict[int, float], tolerance: float) -> int:
+    """The smallest M whose metric is within `tolerance` of the best M's (ties: smaller M)."""
+    best = max(values.values())
+    return min(m for m, v in values.items() if best - v <= tolerance + FLOAT_SLACK)
 
 
 def as_result(name: str, per_question: list[dict]) -> dict:
@@ -86,67 +51,59 @@ def as_result(name: str, per_question: list[dict]) -> dict:
 
 
 def make_report(study: dict) -> str:
-    depths, seed = study["depths"], study["seed"]
-    n_samples = study["bootstrap_samples"]
+    depths, metric = study["rerank_depths"], study["rule"]["metric"]
     lines = [
-        "# Phase 4: candidate depth for the reranker (dev)",
+        "# Phase 4: rerank depth (dev)",
         "",
         "Generated by `python -m ragpapers.evaluation.candidate_depth`. Chunks: "
-        f"{study['chunk_config']} ({study['n_chunks']} chunks). Recall@N: "
+        f"{study['chunk_config']} ({study['n_chunks']} chunks). Fusion: RRF (k={study['rrf_k']}) "
+        f"of BM25 top-{study['fusion_depth']} and dense top-{study['fusion_depth']}; the top M "
+        f"fused chunks are reranked by `{study['reranker']['model']}`. Quality: "
         f"{study['n_answerable']} answerable dev questions; latency: all "
-        f"{study['n_latency_questions']} dev questions. Hybrid pool = RRF (k={study['rrf_k']}) "
-        "of BM25 top-N and dense top-N, cut to N.",
+        f"{study['n_latency_questions']} dev questions.",
         "",
-        "## First-stage Recall@N",
+        f"Hardware: {hardware_line(study['hardware'])}.",
         "",
-        "| N | BM25 | Dense | Hybrid [95% CI] |",
-        "|---|---|---|---|",
+        "| M | Pool recall@M (ceiling) | Recall@3 | Recall@5 [95% CI] | MRR [95% CI] | nDCG@10 "
+        "| Rerank p50 (ms) | Rerank mean (ms) |",
+        "|---|---|---|---|---|---|---|---|",
     ]
-    for n in depths:
-        r = study["recall"][str(n)]
-        h = r["hybrid"]
+    for m in depths:
+        r = study["by_depth"][str(m)]
+        met, lat = r["metrics"], r["rerank_latency_ms"]
         lines.append(
-            f"| {n} | {r['bm25']['mean']:.3f} | {r['dense']['mean']:.3f} "
-            f"| {h['mean']:.3f} [{h['ci_low']:.2f}, {h['ci_high']:.2f}] |"
+            f"| {m} | {r['pool_recall']:.3f} | {met['recall@3']['mean']:.3f} "
+            f"| {met['recall@5']['mean']:.3f} [{met['recall@5']['ci_low']:.2f}, "
+            f"{met['recall@5']['ci_high']:.2f}] "
+            f"| {met['mrr']['mean']:.3f} [{met['mrr']['ci_low']:.2f}, {met['mrr']['ci_high']:.2f}] "
+            f"| {met['ndcg@10']['mean']:.3f} | {lat['p50']:.0f} | {lat['mean']:.0f} |"
         )
     lines += [
         "",
-        "## Recall gain per step (paired, hybrid pool)",
+        f"## Paired {metric} differences between depths",
         "",
-        "| Step | Gain [95% CI] | Questions gaining |",
-        "|---|---|---|",
+        "| Step | Diff [95% CI] |",
+        "|---|---|",
     ]
-    for step in study["gains"]:
-        gained = ", ".join(step["gained"]) or "-"
+    for step in study["steps"]:
         lines.append(
-            f"| N={step['from']} -> {step['to']} | {step['gain']:+.3f} "
-            f"[{step['ci_low']:+.2f}, {step['ci_high']:+.2f}] | {gained} |"
-        )
-    lines += [
-        "",
-        "## Reranker latency (hybrid pool, per query, CPU)",
-        "",
-        "| N | mean (ms) | p50 (ms) | p95 (ms) | max (ms) | pairs truncated |",
-        "|---|---|---|---|---|---|",
-    ]
-    for n in depths:
-        lat = study["latency_ms"][str(n)]
-        lines.append(
-            f"| {n} | {lat['mean']:.0f} | {lat['p50']:.0f} | {lat['p95']:.0f} | {lat['max']:.0f} "
-            f"| {100 * study['truncated_share'][str(n)]:.1f}% |"
+            f"| M={step['to']} - M={step['from']} | {step['diff']:+.3f} "
+            f"[{step['ci_low']:+.2f}, {step['ci_high']:+.2f}] |"
         )
     rule = study["rule"]
     lines += [
         "",
         "## Decision",
         "",
-        f"Rule (fixed before running): smallest N whose next step gains < {rule['flatten_gain']} "
-        f"hybrid Recall@N, capped at the largest N with p95 rerank latency <= "
-        f"{rule['latency_budget_ms']} ms.",
+        f"Rule (fixed before reranked quality was measured): the smallest M whose reranked "
+        f"{metric} is within {rule['tolerance']} of the best M (ties go to the smaller M). "
+        "Latency is reported, not used.",
         "",
-        f"**Chosen N = {study['chosen_depth']}**: {study['reason']}.",
+        f"**Chosen M = {study['chosen_depth']}** ({metric} by M: "
+        + ", ".join(f"{m}: {study['rule_values'][str(m)]:.3f}" for m in depths)
+        + ").",
         "",
-        f"Bootstrap: {n_samples} resamples of questions, seed {seed}.",
+        f"Bootstrap: {study['bootstrap_samples']} resamples of questions, seed {study['seed']}.",
     ]
     return "\n".join(lines) + "\n"
 
@@ -154,13 +111,11 @@ def make_report(study: dict) -> str:
 def main() -> None:
     config = load_config()
     seed = config["seed"]
-    eval_cfg, study_cfg = config["retrieval_eval"], config["depth_study"]
-    ret_cfg = config["retrieval"]
-    emb_cfg, chunking = config["embedding"], config["chunking"]
-    depths = sorted(study_cfg["depths"])
-    max_n = depths[-1]
-    threshold = eval_cfg["quote_match_threshold"]
-    n_samples = eval_cfg["bootstrap_samples"]
+    eval_cfg, study_cfg, ret = config["retrieval_eval"], config["depth_study"], config["retrieval"]
+    depths, metric = sorted(study_cfg["rerank_depths"]), study_cfg["metric"]
+    threshold, n_samples = eval_cfg["quote_match_threshold"], eval_cfg["bootstrap_samples"]
+    if max(depths) > 2 * ret["fusion_depth"]:
+        raise ValueError("a rerank depth is larger than the fused list can be")
 
     split_ids = load_split(REPO_ROOT / config["paths"]["eval_splits"], eval_cfg["split"])
     dev = [
@@ -168,105 +123,65 @@ def main() -> None:
         for q in load_questions(REPO_ROOT / config["paths"]["eval_questions"])
         if q["id"] in split_ids
     ]
-    answerable = [q for q in dev if q["evidence"]]
-    print(f"{len(dev)} {eval_cfg['split']} questions, {len(answerable)} answerable")
+    answerable_ids = {q["id"] for q in dev if q["evidence"]}
+    print(f"{len(dev)} {eval_cfg['split']} questions, {len(answerable_ids)} answerable")
 
-    size, overlap = ret_cfg["chunk_size"], ret_cfg["overlap"]
-    cname = config_name(chunking["unit"], size, overlap)
-    chunks = load_chunks(chunks_path(config, chunking["unit"], size, overlap))
-    by_id = {c["chunk_id"]: c for c in chunks}
-    embedder = Embedder(emb_cfg["model"], emb_cfg["batch_size"])
-    cache = REPO_ROOT / config["index"]["embeddings_dir"] / f"{cname}.npy"
-    vectors = load_or_compute_embeddings(chunks, embedder.encode_passages, emb_cfg["model"], cache)
-    client = QdrantClient(path=str(REPO_ROOT / config["index"]["qdrant_path"]))
-    dense = DenseIndex.build(client, f"chunks_{cname}", chunks, vectors)
-    bm25 = BM25Index(chunks, **config["bm25"])
-
-    # One deep retrieval per question; the top N of a top-max_n list is the top N.
-    rankings = {}
-    for q in dev:
-        rankings[q["id"]] = {
-            "bm25": [c["chunk_id"] for c, _ in bm25.search(q["question"], max_n)],
-            "dense": [
-                c["chunk_id"] for c, _ in dense.search(embedder.encode_query(q["question"]), max_n)
-            ],
-        }
-    client.close()
-
-    def pool(qid: str, retriever: str, n: int) -> list[str]:
-        r = rankings[qid]
-        if retriever == "hybrid":
-            return hybrid_pool(r["bm25"], r["dense"], n, ret_cfg["rrf_k"])
-        return r[retriever][:n]
-
-    # --- recall -------------------------------------------------------------------------------
-    per_question = {(ret, n): [] for ret in RETRIEVERS for n in depths}
-    for q in answerable:
-        quotes = [e["quote"] for e in q["evidence"]]
-        for ret in RETRIEVERS:
-            for n in depths:
-                texts = [by_id[cid]["text"] for cid in pool(q["id"], ret, n)]
-                value = pool_recall(texts, quotes, threshold)
-                per_question[(ret, n)].append({"id": q["id"], "scores": {"recall": value}})
-
-    recall = {}
-    for n in depths:
-        recall[str(n)] = {}
-        for ret in RETRIEVERS:
-            values = [p["scores"]["recall"] for p in per_question[(ret, n)]]
-            low, high = bootstrap_ci(values, n_samples, seed)
-            recall[str(n)][ret] = {"mean": statistics.fmean(values), "ci_low": low, "ci_high": high}
-
-    gains = []
-    for a, b in pairwise(depths):
-        lo_res = as_result(f"hybrid@{a}", per_question[("hybrid", a)])
-        hi_res = as_result(f"hybrid@{b}", per_question[("hybrid", b)])
-        gain, low, high = paired_difference(hi_res, lo_res, "recall", 2 * n_samples, seed)
-        gained = [
-            hi["id"]
-            for hi, lo in zip(per_question[("hybrid", b)], per_question[("hybrid", a)], strict=True)
-            if hi["scores"]["recall"] > lo["scores"]["recall"]
-        ]
-        gains.append(
-            {"from": a, "to": b, "gain": gain, "ci_low": low, "ci_high": high, "gained": gained}
-        )
-
-    # --- reranker latency ---------------------------------------------------------------------
-    reranker = Reranker(config["reranker"]["model"], config["reranker"]["batch_size"])
-    warm = [by_id[cid] for cid in pool(dev[0]["id"], "hybrid", depths[0])]
-    reranker.rerank(dev[0]["question"], warm)  # loads the model and warms up torch
-    tokenizer, max_len = reranker.model.tokenizer, reranker.model.max_length
-
-    latencies = {n: [] for n in depths}
-    truncated = {n: 0 for n in depths}
-    for q in dev:
-        for n in depths:
-            candidates = [by_id[cid] for cid in pool(q["id"], "hybrid", n)]
-            start = time.perf_counter()
-            reranker.rerank(q["question"], candidates)
-            latencies[n].append(1000 * (time.perf_counter() - start))
-            truncated[n] += sum(
-                len(tokenizer(q["question"], dense_text(c))["input_ids"]) > max_len
-                for c in candidates
-            )
-        print(f"  {q['id']}: " + "  ".join(f"N={n} {latencies[n][-1]:.0f} ms" for n in depths))
-
-    latency_ms = {
-        str(n): {
-            "mean": statistics.fmean(v),
-            "p50": statistics.median(v),
-            "p95": p95(v),
-            "max": max(v),
-        }
-        for n, v in latencies.items()
+    indexes = load_indexes(config)
+    by_id = indexes["by_id"]
+    hybrid = {
+        q["id"]: first_stage(q["question"], indexes, ret["fusion_depth"], ret["rrf_k"])[0]["hybrid"]
+        for q in dev
     }
-    chosen, reason = choose_depth(
-        depths,
-        {n: recall[str(n)]["hybrid"]["mean"] for n in depths},
-        {n: latency_ms[str(n)]["p95"] for n in depths},
-        study_cfg["flatten_gain"],
-        study_cfg["latency_budget_ms"],
-    )
+    indexes["client"].close()
+
+    reranker = Reranker(config["reranker"]["model"], config["reranker"]["batch_size"])
+    rerank_top(dev[0]["question"], hybrid[dev[0]["id"]], depths[0], by_id, reranker)  # warm-up
+    hardware = hardware_info()
+
+    per_question = {m: [] for m in depths}
+    pool_recalls = {m: [] for m in depths}
+    latencies = {m: [] for m in depths}
+    for q in dev:
+        quotes = evidence_groups(q)
+        for m in depths:
+            reranked, ms = rerank_top(q["question"], hybrid[q["id"]], m, by_id, reranker)
+            latencies[m].append(ms)
+            if q["id"] not in answerable_ids:
+                continue
+            top = [by_id[i] for i in reranked[: eval_cfg["top_n"]]]
+            scored = score_question(top, quotes, eval_cfg["ks"], threshold)
+            per_question[m].append(
+                {"id": q["id"], "type": q["type"], "retrieved": reranked, **scored}
+            )
+            pool = [by_id[i]["text"] for i in hybrid[q["id"]][:m]]
+            pool_recalls[m].append(pool_recall(pool, quotes, threshold))
+        print(f"  {q['id']}: " + "  ".join(f"M={m} {latencies[m][-1]:.0f} ms" for m in depths))
+
+    by_depth = {
+        str(m): {
+            "metrics": aggregate(per_question[m], n_samples, seed),
+            "pool_recall": statistics.fmean(pool_recalls[m]),
+            "rerank_latency_ms": {
+                "p50": statistics.median(latencies[m]),
+                "mean": statistics.fmean(latencies[m]),
+                "max": max(latencies[m]),
+            },
+        }
+        for m in depths
+    }
+    rule_values = {m: by_depth[str(m)]["metrics"][metric]["mean"] for m in depths}
+    chosen = choose_rerank_depth(rule_values, study_cfg["tolerance"])
+
+    steps = []
+    for a, b in pairwise(depths):
+        diff, low, high = paired_difference(
+            as_result(f"M={b}", per_question[b]),
+            as_result(f"M={a}", per_question[a]),
+            metric,
+            2 * n_samples,
+            seed,
+        )
+        steps.append({"from": a, "to": b, "diff": diff, "ci_low": low, "ci_high": high})
 
     study = {
         "name": "candidate_depth",
@@ -275,26 +190,24 @@ def main() -> None:
         "split": eval_cfg["split"],
         "seed": seed,
         "bootstrap_samples": n_samples,
-        "chunk_config": cname,
-        "n_chunks": len(chunks),
-        "n_answerable": len(answerable),
+        "hardware": hardware,
+        "chunk_config": indexes["name"],
+        "n_chunks": len(indexes["chunks"]),
+        "n_answerable": len(answerable_ids),
         "n_latency_questions": len(dev),
-        "rrf_k": ret_cfg["rrf_k"],
+        "rrf_k": ret["rrf_k"],
+        "fusion_depth": ret["fusion_depth"],
         "reranker": config["reranker"],
-        "reranker_max_length": max_len,
-        "depths": depths,
-        "rule": {k: study_cfg[k] for k in ("flatten_gain", "latency_budget_ms")},
-        "recall": recall,
-        "gains": gains,
-        "latency_ms": latency_ms,
-        "truncated_share": {str(n): truncated[n] / (n * len(dev)) for n in depths},
+        "top_n": eval_cfg["top_n"],
+        "rerank_depths": depths,
+        "rule": {"metric": metric, "tolerance": study_cfg["tolerance"]},
+        "rule_values": {str(m): v for m, v in rule_values.items()},
         "chosen_depth": chosen,
-        "reason": reason,
-        "per_question": {
-            f"{ret}@{n}": per_question[(ret, n)] for ret in RETRIEVERS for n in depths
-        },
+        "by_depth": by_depth,
+        "steps": steps,
+        "per_question": {str(m): per_question[m] for m in depths},
         "latencies_ms_per_question": {
-            str(n): dict(zip([q["id"] for q in dev], v, strict=True)) for n, v in latencies.items()
+            str(m): dict(zip([q["id"] for q in dev], v, strict=True)) for m, v in latencies.items()
         },
     }
     results_dir = REPO_ROOT / config["paths"]["results_dir"] / PHASE
@@ -303,7 +216,7 @@ def main() -> None:
     out.write_text(json.dumps(study, indent=1) + "\n", encoding="utf-8", newline="\n")
     report = REPO_ROOT / "reports" / "phase4_candidate_depth.md"
     report.write_text(make_report(study), encoding="utf-8", newline="\n")
-    print(f"\nChosen N = {chosen}: {reason}\nWrote {out} and {report}")
+    print(f"\nChosen M = {chosen}\nWrote {out} and {report}")
 
 
 if __name__ == "__main__":

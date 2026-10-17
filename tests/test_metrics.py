@@ -8,7 +8,7 @@ THRESHOLD = 90
 K = "model size should grow faster than data"  # quote 0
 C1 = "scaled in equal proportions with training tokens"  # quote 1
 C2 = "a 70B model trained on 1.4 trillion tokens"  # quote 2
-QUOTES = [K, C1, C2]
+QUOTES = [[K], [C1], [C2]]  # one group per evidence item, no alternatives
 
 # The worked example from the Phase 3 explanation: rank 3 repeats C1 (overlap duplicate).
 CHUNKS = [
@@ -35,7 +35,7 @@ def test_credit_quotes_one_chunk_can_credit_several_quotes():
 
 def test_credit_quotes_ignores_case_and_ref_markers():
     chunks = ["Model size should grow faster [ref] than data."]
-    assert credit_quotes(chunks, [K], THRESHOLD) == [[0]]
+    assert credit_quotes(chunks, [[K]], THRESHOLD) == [[0]]
 
 
 def test_credit_quotes_no_chunks():
@@ -101,3 +101,40 @@ def test_ndcg_nothing_found_is_zero():
 def test_ndcg_rejects_invalid_input(n_quotes, k):
     with pytest.raises(ValueError):
         ndcg_at_k(CREDITED, n_quotes=n_quotes, k=k)
+
+
+# --- credit_quotes with alternatives (evidence groups) -----------------------------------------
+
+K_ALT = "parameters and tokens should be scaled equally"  # same fact as C1, other wording
+
+
+def test_credit_quotes_alternative_counts_for_its_group():
+    chunks = ["unrelated", f"We find that {K_ALT}."]
+    assert credit_quotes(chunks, [[C1, K_ALT]], THRESHOLD) == [[], [0]]
+
+
+def test_credit_quotes_group_credited_once_at_first_match():
+    # The alternative appears first, the original later: the group is credited at the first.
+    chunks = [f"We find that {K_ALT}.", f"Our finding: {C1}."]
+    assert credit_quotes(chunks, [[C1, K_ALT]], THRESHOLD) == [[0], []]
+
+
+def test_credit_quotes_groups_are_independent():
+    chunks = [f"{K}", f"We find that {K_ALT}."]
+    assert credit_quotes(chunks, [[K], [C1, K_ALT], [C2]], THRESHOLD) == [[0], [1]]
+
+
+def test_credit_quotes_single_quote_groups_match_the_original_scoring():
+    # Groups of one are exactly the pre-alternatives behaviour (the worked example above).
+    assert credit_quotes(CHUNKS, [[K], [C1], [C2]], THRESHOLD) == CREDITED
+
+
+def test_credit_quotes_rejects_bare_strings():
+    with pytest.raises(TypeError):
+        credit_quotes(CHUNKS, [K, C1], THRESHOLD)
+
+
+def test_recall_denominator_is_the_number_of_groups():
+    # Two evidence items, the second with an alternative: finding the alternative = 1 of 2 items.
+    credited = credit_quotes([f"We find that {K_ALT}."], [[K], [C1, K_ALT]], THRESHOLD)
+    assert recall_at_k(credited, n_quotes=2, k=1) == pytest.approx(0.5)

@@ -1,0 +1,42 @@
+{
+ "purpose": "Judge validation: the user hand-grades the answers to these questions blind, before any judge grade is shown.",
+ "split": "dev",
+ "seed": 42,
+ "n": 20,
+ "method": "Answerable dev questions (unanswerable excluded), stratified by type with proportional allocation; IDs sorted per type, then random.Random(seed).sample, factual first, then comparison.",
+ "population": {
+  "factual": 21,
+  "comparison": 9
+ },
+ "allocation": {
+  "factual": 14,
+  "comparison": 6
+ },
+ "questions": {
+  "factual": [
+   "q101",
+   "q102",
+   "q106",
+   "q114",
+   "q205",
+   "q206",
+   "q209",
+   "q307",
+   "q308",
+   "q309",
+   "q406",
+   "q408",
+   "q501",
+   "q507"
+  ],
+  "comparison": [
+   "q107",
+   "q108",
+   "q211",
+   "q409",
+   "q410",
+   "q509"
+  ]
+ },
+ "answers_from": "the chosen configuration: openai/gpt-oss-120b, plain hybrid, k = 8"
+}

@@ -1,17 +1,23 @@
 """Retrieval metrics: Recall@k, reciprocal rank (MRR) and nDCG@k.
 
-Relevance is judged against the gold evidence quotes of a question (see eval/README.md):
-- a retrieved chunk is relevant if it contains an evidence quote (fuzzy match, `contains_quote`);
-- each quote is credited only ONCE, at the highest-ranked chunk that contains it. A later chunk
-  containing an already-credited quote (e.g. an overlapping neighbour) earns nothing.
+Relevance is judged against the gold evidence of a question (see eval/README.md). Each evidence
+item is a GROUP of quotes: its original quote plus any approved alternatives (the same fact,
+stated elsewhere in the same paper). See `evidence_groups` in evaluation/questions.py.
+- a retrieved chunk is relevant if it contains any quote of a group (fuzzy match,
+  `contains_quote`);
+- each group is credited only ONCE, at the highest-ranked chunk that contains any of its quotes.
+  A later chunk containing an already-credited group (e.g. an overlapping neighbour, or the
+  other place the paper states the fact) earns nothing.
 
 The pipeline for one question is:
-    credited = credit_quotes(retrieved_chunk_texts, quotes, threshold)
-    recall_at_k(credited, len(quotes), k)
+    groups = evidence_groups(question)
+    credited = credit_quotes(retrieved_chunk_texts, groups, threshold)
+    recall_at_k(credited, len(groups), k)
     reciprocal_rank(credited)
-    ndcg_at_k(credited, len(quotes), k)
+    ndcg_at_k(credited, len(groups), k)
 MRR over a question set is the mean of `reciprocal_rank` over its (answerable) questions.
-Unanswerable questions have no quotes and are excluded from these metrics.
+Unanswerable questions have no evidence and are excluded from these metrics.
+A group of one quote behaves exactly like the original single-quote scoring.
 """
 
 import math
@@ -19,29 +25,37 @@ import math
 from ragpapers.evaluation.matching import contains_quote
 
 
-def credit_quotes(chunk_texts: list[str], quotes: list[str], threshold: float) -> list[list[int]]:
-    """For each retrieved chunk, in rank order, the quote indices it is the FIRST to contain.
+def credit_quotes(
+    chunk_texts: list[str], quote_groups: list[list[str]], threshold: float
+) -> list[list[int]]:
+    """For each retrieved chunk, in rank order, the evidence groups it is the FIRST to contain.
 
     Args:
         chunk_texts: retrieved chunk texts, best-ranked first.
-        quotes: the question's evidence quotes.
+        quote_groups: one list of quotes per evidence item (original first, then alternatives).
+            A chunk contains a group if it contains ANY of the group's quotes.
         threshold: score (0-100) passed to `contains_quote` to decide a chunk contains a quote.
 
     Returns:
         A list with one entry per chunk (same length as `chunk_texts`). Each entry is the sorted
-        list of quote indices first found in that chunk; [] if it adds no new quote.
+        list of group indices first found in that chunk; [] if it adds no new group.
 
-    Example: quotes [A, B]; chunks [contains A, contains A, contains A and B] -> [[0], [], [1]]
+    Example: groups [[A], [B, B2]]; chunks [contains A, contains B2, contains B]
+        -> [[0], [1], []]   (group 1 is credited at B2; the later chunk with B earns nothing)
     """
-    credited: set[int] = set()  # quote indices already claimed by a higher-ranked chunk
+    if any(isinstance(group, str) for group in quote_groups):
+        # A bare string would be iterated character by character and match almost anything.
+        raise TypeError("quote_groups must be lists of quotes, e.g. [[quote]], not [quote]")
+
+    credited: set[int] = set()  # group indices already claimed by a higher-ranked chunk
     result: list[list[int]] = []
 
     for text in chunk_texts:  # rank order: best chunk first
         new: list[int] = []
-        for i, quote in enumerate(quotes):
+        for i, group in enumerate(quote_groups):
             if i in credited:
                 continue  # already claimed: an overlapping neighbour earns nothing
-            if contains_quote(quote, text, threshold):
+            if any(contains_quote(quote, text, threshold) for quote in group):
                 new.append(i)
                 credited.add(i)
         result.append(new)  # one entry per chunk, even if empty

@@ -109,7 +109,7 @@ def over_budget(
 
 
 def quotes_cut(chunks: list[dict], questions: list[dict], threshold: float) -> list[str]:
-    """'<question id>/<paper id>' for every evidence quote that no single chunk contains."""
+    """'<question id>/<paper id>[/alt<j>]' for every quote (or alternative) no chunk contains."""
     by_paper: dict[str, list[str]] = {}
     for chunk in chunks:
         by_paper.setdefault(chunk["paper_id"], []).append(chunk["text"])
@@ -117,8 +117,12 @@ def quotes_cut(chunks: list[dict], questions: list[dict], threshold: float) -> l
     for q in questions:
         for ev in q["evidence"]:
             texts = by_paper.get(ev["paper_id"], [])
-            if not any(contains_quote(ev["quote"], t, threshold) for t in texts):
-                cut.append(f"{q['id']}/{ev['paper_id']}")
+            labelled = [("", ev["quote"])] + [
+                (f"/alt{j}", alt) for j, alt in enumerate(ev.get("alternatives", []))
+            ]
+            for suffix, quote in labelled:
+                if not any(contains_quote(quote, t, threshold) for t in texts):
+                    cut.append(f"{q['id']}/{ev['paper_id']}{suffix}")
     return cut
 
 
@@ -175,7 +179,7 @@ def main() -> None:
     paper_ids = [p.arxiv_id for p in load_manifest(REPO_ROOT / config["paths"]["manifest"])]
     corpus = load_corpus(REPO_ROOT / config["paths"]["processed_dir"], paper_ids)
     questions = load_questions(REPO_ROOT / config["paths"]["eval_questions"])
-    n_quotes = sum(len(q["evidence"]) for q in questions)
+    n_quotes = sum(1 + len(ev.get("alternatives", [])) for q in questions for ev in q["evidence"])
     threshold = config["retrieval_eval"]["quote_match_threshold"]
 
     failed = False
