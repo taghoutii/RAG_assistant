@@ -25,7 +25,7 @@ def chunk(cid, text):
 
 def test_score_question_uses_the_user_metrics():
     retrieved = [chunk("a", "nothing relevant here"), chunk("b", f"In FiD {QUOTE} jointly.")]
-    result = score_question(retrieved, [QUOTE], ks=[1, 2], threshold=90)
+    result = score_question(retrieved, [[QUOTE]], ks=[1, 2], threshold=90)
     assert result["credited"] == [[], [0]]
     assert result["scores"]["rr"] == 0.5
     assert result["scores"]["recall@1"] == 0.0

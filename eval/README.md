@@ -40,6 +40,29 @@ A quote is how the evaluation recognises a relevant chunk, whatever the chunking
 - **It must contain the fact that answers the question**, not just the topic.
 - Prefer the main text over the abstract when both state the fact. Answers found only in the abstract make retrieval look easier than it is.
 
+## Alternative quotes
+
+A paper often states a fact in more than one place (abstract, introduction, results). With a single
+quote, a chunk that states the fact in other words would count as irrelevant. Each evidence item may
+therefore list up to 3 `alternatives`: other verbatim spans of the **same paper** that state the
+**same fact** (5–50 words, one block, no tables, no second-hand restatements from other papers).
+
+```json
+"evidence": [{"paper_id": "2002.08909", "quote": "...", "alternatives": ["...", "..."]}]
+```
+
+An evidence item counts as found, once, at the first retrieved chunk containing its quote **or** any
+alternative; recall still divides by the number of evidence items. Alternatives are chosen blind to
+retrieval: candidates come only from the paper's text and the question's reference answer, and each
+one is approved by hand.
+
+```powershell
+python -m ragpapers.evaluation.alternates candidates   # eval/alternates/batch_XX.md (drafts, gitignored)
+# tick "- [x]" the candidates that state the same fact, trim or extend in place if needed
+python -m ragpapers.evaluation.alternates apply        # writes the approved ones into questions.jsonl
+python -m ragpapers.evaluation.questions               # re-validate
+```
+
 ## Question mix
 
 Target: **60–80 questions**, about **55% factual, 25% comparison, 20% unanswerable**.

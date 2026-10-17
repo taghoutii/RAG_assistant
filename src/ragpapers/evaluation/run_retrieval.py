@@ -28,7 +28,7 @@ from qdrant_client import QdrantClient
 from ragpapers.chunking.build import chunks_path, config_name, load_chunks
 from ragpapers.config import REPO_ROOT, load_config
 from ragpapers.evaluation.metrics import credit_quotes, ndcg_at_k, recall_at_k, reciprocal_rank
-from ragpapers.evaluation.questions import load_questions
+from ragpapers.evaluation.questions import evidence_groups, load_questions
 from ragpapers.evaluation.split import load_split
 from ragpapers.index.bm25 import BM25Index
 from ragpapers.index.dense import DenseIndex, Embedder, load_or_compute_embeddings
@@ -40,14 +40,14 @@ PHASE = "phase3_tokens"
 
 
 def score_question(
-    retrieved: list[dict], quotes: list[str], ks: list[int], threshold: float
+    retrieved: list[dict], quote_groups: list[list[str]], ks: list[int], threshold: float
 ) -> dict:
-    """All metrics for one question, given its retrieved chunks (best first)."""
-    credited = credit_quotes([c["text"] for c in retrieved], quotes, threshold)
+    """All metrics for one question, given its retrieved chunks (best first) and evidence groups."""
+    credited = credit_quotes([c["text"] for c in retrieved], quote_groups, threshold)
     scores = {"rr": reciprocal_rank(credited)}
     for k in ks:
-        scores[f"recall@{k}"] = recall_at_k(credited, len(quotes), k)
-        scores[f"ndcg@{k}"] = ndcg_at_k(credited, len(quotes), k)
+        scores[f"recall@{k}"] = recall_at_k(credited, len(quote_groups), k)
+        scores[f"ndcg@{k}"] = ndcg_at_k(credited, len(quote_groups), k)
     return {"credited": credited, "scores": scores}
 
 
@@ -99,8 +99,9 @@ def run_setup(
         start = time.perf_counter()
         retrieved = retrieve(q["question"], cfg["top_n"])
         latencies.append(1000 * (time.perf_counter() - start))
-        quotes = [e["quote"] for e in q["evidence"]]
-        result = score_question(retrieved, quotes, cfg["ks"], cfg["quote_match_threshold"])
+        result = score_question(
+            retrieved, evidence_groups(q), cfg["ks"], cfg["quote_match_threshold"]
+        )
         per_question.append(
             {
                 "id": q["id"],

@@ -7,6 +7,7 @@ from ragpapers.evaluation.questions import (
     check_quotes,
     check_schema,
     check_set,
+    evidence_groups,
     load_questions,
     questions_per_paper,
     validate,
@@ -106,7 +107,10 @@ def test_valid_questions_have_no_issues(q):
         (unanswerable(evidence=factual()["evidence"]), "must have empty evidence"),
         (unanswerable(reference_answer="No idea."), "must be exactly"),
         (factual(evidence=[{"paper_id": "9999.99999", "quote": "a b c d e"}]), "not in the"),
-        (factual(evidence=[{"paper": "1111.00001", "quote": "a b c d e"}]), "exactly 'paper_id'"),
+        (
+            factual(evidence=[{"paper": "1111.00001", "quote": "a b c d e"}]),
+            "'paper_id' and 'quote'",
+        ),
     ],
 )
 def test_schema_errors(q, expected):
@@ -164,3 +168,46 @@ def test_committed_eval_files_have_no_schema_errors(name):
     paper_ids = {p.arxiv_id for p in load_manifest(REPO_ROOT / "data" / "corpus_manifest.yaml")}
     issues = validate(load_questions(path), paper_ids, CFG, ABSTAIN, corpus=None)
     assert errors(issues) == []
+
+
+# --- alternatives (same fact, same paper) ------------------------------------------------------
+
+ALT = "eight attention heads in every layer"
+
+
+def with_alternatives(alternatives):
+    ev = {"paper_id": "1111.00001", "quote": "uses eight attention heads in every"}
+    return factual(evidence=[{**ev, "alternatives": alternatives}])
+
+
+def test_alternatives_are_valid():
+    q = with_alternatives([ALT])
+    assert not errors(check_schema(q, PAPER_IDS, CFG, ABSTAIN) + check_quotes(q, CORPUS, 90))
+
+
+def test_alternative_must_be_in_the_same_paper():
+    q = with_alternatives(["a batch size of 512 sequences for 100k steps"])  # paper two's text
+    (message,) = errors(check_quotes(q, CORPUS, 90))
+    assert "alternatives[0]" in message and "2222.00002" in message
+
+
+@pytest.mark.parametrize(
+    ("alternatives", "fragment"),
+    [
+        ("not a list", "list of strings"),
+        ([ALT, ALT + " and", ALT + " or", ALT + " also"], "max 3"),
+        (["too short"], "words"),
+        (["uses eight attention heads in every"], "duplicate"),
+    ],
+)
+def test_alternatives_schema_errors(alternatives, fragment):
+    messages = errors(check_schema(with_alternatives(alternatives), PAPER_IDS, CFG, ABSTAIN))
+    assert any(fragment in m for m in messages), messages
+
+
+def test_evidence_groups():
+    q = with_alternatives([ALT])
+    assert evidence_groups(q) == [["uses eight attention heads in every", ALT]]
+    assert evidence_groups(q, with_alternatives=False) == [["uses eight attention heads in every"]]
+    assert evidence_groups(factual()) == [["uses eight attention heads in every"]]
+    assert evidence_groups({"evidence": []}) == []
