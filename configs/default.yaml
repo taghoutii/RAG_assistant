@@ -82,6 +82,8 @@ llm:
   provider: groq          # generator
   model: openai/gpt-oss-120b
   reasoning_effort: low   # reasoning tokens count against the quota
+  temperature: 0          # reproducible answers (the cache makes re-runs identical)
+  max_output_tokens: 1024 # answer + reasoning
   limits: {rpm: 30, rpd: 1000, tpm: 8000, tpd: 200000}
   fallback_provider: ollama   # unlimited offline fallback (installed later)
   fallback_model: null
@@ -96,6 +98,8 @@ generation:
 judge:
   provider: gemini
   model: gemini-3.5-flash-lite
+  temperature: 0
+  max_output_tokens: 512  # answer + thinking (Gemini default thinking)
   limits: {rpm: 15, rpd: 500, tpm: 250000}
   fallback_provider: groq
   fallback_model: qwen/qwen3.8-27b   # separate per-model Groq budget from the generator
@@ -105,4 +109,17 @@ llm_calls:
   cache_dir: cache/llm    # one cached response per (provider, model, prompt hash)
   max_retries: 6          # on HTTP 429 / transient errors
   backoff_initial_s: 2
-  backoff_max_s: 120
+  backoff_max_s: 120     # a longer requested wait means a daily quota: stop, re-run to resume
+  timeout_s: 120
+
+# Connection settings per provider. Keys are read from the named environment variables.
+providers:
+  groq:
+    base_url: https://api.groq.com/openai/v1
+    api_key_env: GROQ_API_KEY
+  gemini:
+    base_url: https://generativelanguage.googleapis.com/v1beta
+    api_key_env: GEMINI_API_KEY
+  ollama:
+    host_env: OLLAMA_HOST
+    default_host: http://localhost:11434
