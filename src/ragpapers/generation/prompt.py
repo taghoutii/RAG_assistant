@@ -40,7 +40,7 @@ USER_TEMPLATE = """Context passages:
 
 Question: {question}"""
 
-CITATION = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
+CITATION = re.compile(r"[\[【](\d+(?:\s*,\s*\d+)*)[\]】]")
 
 
 class Citations(NamedTuple):
@@ -85,7 +85,8 @@ def build_messages(question: str, chunks: list[dict], abstention_text: str) -> l
 def parse_citations(answer: str, n_chunks: int) -> Citations:
     """The chunk numbers cited in `answer`.
 
-    Recognised forms: "[3]", "[3][5]", "[3, 5]" and "[3,5]". Other brackets are not citations
+    Recognised forms: "[3]", "[3][5]", "[3, 5]" and "[3,5]", and gpt-oss's native "【3】" and
+    "【3, 5】" (a mismatched pair such as "[3】" also counts). Other brackets are not citations
     ("[a]", "[3a]", "(3)", "[]"). Each number is listed once, at its first appearance; numbers
     outside 1..n_chunks go to `invalid` (the model cited a chunk it was never shown).
     """

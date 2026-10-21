@@ -46,6 +46,12 @@ def test_answer_text_is_kept_with_the_models_numbers():
     assert cite_answer(reply, CHUNKS, ABSTAIN).text == "Refresh every 500 steps [5]."
 
 
+def test_lenticular_and_mixed_citations_become_sources():
+    cited = cite_answer("Every 500 steps【1】. Asynchronous [3]【2, 1】.", CHUNKS, ABSTAIN)
+    assert [s.number for s in cited.sources] == [1, 3, 2]
+    assert "【1】" in cited.text  # the reply text itself is not rewritten
+
+
 def test_invalid_numbers_are_reported_not_listed():
     cited = cite_answer("A [9]. B [1]. C [0].", CHUNKS, ABSTAIN)
     assert [s.number for s in cited.sources] == [1]

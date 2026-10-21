@@ -108,6 +108,27 @@ def test_parse_citations(answer, expected):
     assert parse_citations(answer, 8) == Citations(valid=expected, invalid=[])
 
 
+@pytest.mark.parametrize(
+    ("answer", "expected"),
+    [
+        ("REALM refreshes the index about every 500 steps【1】.", [1]),  # 【1】
+        ("Both papers agree 【2, 5】.", [2, 5]),  # 【2, 5】
+        ("Both papers agree 【2,5】【3】.", [2, 5, 3]),  # 【2,5】【3】
+        ("Claim [4]. Claim 【1】. Claim [1][6].", [4, 1, 6]),  # mixed, repeat once
+        ("Not citations: 【a】, 【3a】, 【】.", []),
+    ],
+)
+def test_parse_lenticular_and_mixed_citations(answer, expected):
+    """gpt-oss sometimes cites with its native 【n】 brackets instead of [n]."""
+    assert parse_citations(answer, 8) == Citations(valid=expected, invalid=[])
+
+
+def test_out_of_range_lenticular_citations_are_invalid():
+    assert parse_citations("Fact 【9】. Fact [9]. Fact 【0, 2】.", 8) == Citations(
+        valid=[2], invalid=[9, 0]
+    )
+
+
 def test_out_of_range_citations_are_invalid():
     assert parse_citations("Fact [0]. Fact [9]. Fact [8]. Fact [9].", 8) == Citations(
         valid=[8], invalid=[0, 9]
