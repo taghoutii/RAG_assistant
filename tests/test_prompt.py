@@ -123,6 +123,26 @@ def test_parse_lenticular_and_mixed_citations(answer, expected):
     assert parse_citations(answer, 8) == Citations(valid=expected, invalid=[])
 
 
+@pytest.mark.parametrize(
+    ("answer", "expected"),
+    [
+        # as in dev answers q211 and q406
+        ("Both use ELECTRA【1†L1-L4】【2†L1-L4】.", [1, 2]),
+        ("Ranked by a model【1†L9-L13】, then 【1†L13-L15】.", [1]),
+        ("Mixed [3], 【6†L1-L4】 and 【7】.", [3, 6, 7]),
+        ("Other suffix 【4†source】.", [4]),
+        ("No number 【†L1-L4】 or 【a†L1】.", []),
+    ],
+)
+def test_dagger_line_ranges_are_ignored(answer, expected):
+    """gpt-oss sometimes writes 【n†Lx-Ly】: it cites passage n."""
+    assert parse_citations(answer, 8) == Citations(valid=expected, invalid=[])
+
+
+def test_out_of_range_dagger_citation_is_invalid():
+    assert parse_citations("Fact 【9†L1-L2】.", 8) == Citations(valid=[], invalid=[9])
+
+
 def test_out_of_range_lenticular_citations_are_invalid():
     assert parse_citations("Fact 【9】. Fact [9]. Fact 【0, 2】.", 8) == Citations(
         valid=[2], invalid=[9, 0]

@@ -1,0 +1,54 @@
+{
+ "judge": "qwen/qwen3.8-27b",
+ "rule": {
+  "metrics": [
+   "faithfulness",
+   "citation_correctness",
+   "relevance",
+   "correctness"
+  ],
+  "kappa_min": 0.6,
+  "skew_share": 0.85,
+  "raw_min": 0.85
+ },
+ "metrics": {
+  "faithfulness": {
+   "n": 19,
+   "kappa": 1.0,
+   "raw": 1.0,
+   "human_majority_share": 0.8947368421052632,
+   "skewed": true,
+   "score": 1.0,
+   "passed": true
+  },
+  "citation_correctness": {
+   "n": 19,
+   "kappa": 0.518987341772152,
+   "raw": 0.7894736842105263,
+   "human_majority_share": 0.631578947368421,
+   "skewed": false,
+   "score": 0.518987341772152,
+   "passed": false
+  },
+  "relevance": {
+   "n": 19,
+   "kappa": null,
+   "raw": 1.0,
+   "human_majority_share": 1.0,
+   "skewed": true,
+   "score": 1.0,
+   "passed": true
+  },
+  "correctness": {
+   "n": 19,
+   "kappa": 0.46478873239436624,
+   "raw": 0.7894736842105263,
+   "human_majority_share": 0.7894736842105263,
+   "skewed": false,
+   "score": 0.46478873239436624,
+   "passed": false
+  }
+ },
+ "poor": true,
+ "mean_score": 0.7459440185416295
+}

@@ -40,3 +40,6 @@ RAG_PROJECT_BRIEF.md
 
 # Private decision log (kept locally)
 docs/DECISIONS.md
+
+# Grading sheet (contains corpus text, like data/)
+eval/grading/

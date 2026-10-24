@@ -40,7 +40,8 @@ USER_TEMPLATE = """Context passages:
 
 Question: {question}"""
 
-CITATION = re.compile(r"[\[【](\d+(?:\s*,\s*\d+)*)[\]】]")
+# [3], [3, 5], 【3】; gpt-oss sometimes adds a line range, 【3†L1-L4】, which is ignored.
+CITATION = re.compile(r"[\[【](\d+(?:\s*,\s*\d+)*)(?:†[^\]】]*)?[\]】]")
 
 
 class Citations(NamedTuple):
@@ -86,9 +87,11 @@ def parse_citations(answer: str, n_chunks: int) -> Citations:
     """The chunk numbers cited in `answer`.
 
     Recognised forms: "[3]", "[3][5]", "[3, 5]" and "[3,5]", and gpt-oss's native "【3】" and
-    "【3, 5】" (a mismatched pair such as "[3】" also counts). Other brackets are not citations
-    ("[a]", "[3a]", "(3)", "[]"). Each number is listed once, at its first appearance; numbers
-    outside 1..n_chunks go to `invalid` (the model cited a chunk it was never shown).
+    "【3, 5】" (a mismatched pair such as "[3】" also counts). "【3†L1-L4】" cites passage 3: the
+    line range after "†" is ignored (passages have no line numbers). Other brackets are not
+    citations ("[a]", "[3a]", "(3)", "[]"). Each number is listed once, at its first
+    appearance; numbers outside 1..n_chunks go to `invalid` (the model cited a chunk it was
+    never shown).
     """
     valid: list[int] = []
     invalid: list[int] = []
