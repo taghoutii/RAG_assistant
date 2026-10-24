@@ -1,9 +1,6 @@
-import pytest
-
 from ragpapers.config import load_config
 from ragpapers.evaluation.evaluate_generation import (
     fmt_metric,
-    kept_judge_model,
     make_report,
     score_questions,
     summarize,
@@ -109,16 +106,10 @@ def test_report_puts_agreement_next_to_each_judge_metric():
     assert "| Hybrid (RRF) |" in report and "500 ms" in report
 
 
-def test_kept_judge_is_qwen():
-    assert kept_judge_model(load_config()) == "qwen/qwen3.8-27b"
-
-
-@pytest.mark.parametrize("kept", ["judge", "judge_fallback"])
-def test_kept_judge_follows_the_config(kept):
-    config = load_config()
-    config["judge"] = config["judge"] | {"kept": kept}
-    expected = config["judge"]["model" if kept == "judge" else "fallback_model"]
-    assert kept_judge_model(config) == expected
+def test_the_judge_is_qwen_with_no_fallback_left_in_the_config():
+    judge = load_config()["judge"]
+    assert (judge["provider"], judge["model"]) == ("groq", "qwen/qwen3.8-27b")
+    assert not any(key.startswith("fallback") or key == "kept" for key in judge)
 
 
 def test_each_cell_carries_its_own_n():

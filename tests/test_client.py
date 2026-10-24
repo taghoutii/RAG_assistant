@@ -15,7 +15,6 @@ from ragpapers.generation.client import (
 from ragpapers.generation.env import load_env
 from ragpapers.generation.providers import (
     FakeProvider,
-    GeminiProvider,
     GroqProvider,
     LLMRequest,
     Message,
@@ -263,14 +262,13 @@ def test_make_client_follows_the_config(tmp_path, keys):
     assert gen.throttle.rpm == config["llm"]["limits"]["rpm"]
 
     judge = make_client(config, "judge", env_file=no_env)
-    assert isinstance(judge.provider, GeminiProvider)
-    assert judge.model == config["judge"]["model"]
+    assert isinstance(judge.provider, GroqProvider)
+    assert judge.model == config["judge"]["model"] == "qwen/qwen3.8-27b"
     assert judge.defaults["reasoning_effort"] is None
+    assert judge.throttle.tpm == config["judge"]["limits"]["tpm"]
 
-    fallback = make_client(config, "judge_fallback", env_file=no_env)
-    assert isinstance(fallback.provider, GroqProvider)
-    assert fallback.model == config["judge"]["fallback_model"]
-    assert fallback.throttle.tpm == config["judge"]["fallback_limits"]["tpm"]
+    with pytest.raises(ValueError, match="unknown role"):
+        make_client(config, "judge_fallback", env_file=no_env)
 
 
 def test_make_client_explains_a_missing_key(tmp_path, monkeypatch):
@@ -324,7 +322,6 @@ def test_is_cached(tmp_path):
 def test_judge_clients_use_json_mode(tmp_path, keys):
     config = load_config()
     assert make_client(config, "judge", env_file=tmp_path / "x").defaults["json_output"] is True
-    assert make_client(config, "judge_fallback", env_file=tmp_path / "x").defaults["json_output"]
     assert (
         make_client(config, "generator", env_file=tmp_path / "x").defaults["json_output"] is False
     )
@@ -350,3 +347,17 @@ def test_wait_ms_is_cached_with_the_response(tmp_path):
     c.generate(PROMPT)
     again = c.generate(PROMPT)
     assert again.cached and again.wait_ms == 0
+
+
+def test_throttle_wait_returns_the_seconds_slept():
+    clock = FakeClock()
+    throttle = MinuteThrottle(rpm=1, tpm=None, clock=clock, sleep=clock.sleep)
+    assert throttle.wait(10) == 0  # nothing recorded yet: no sleep
+    throttle.record(10)
+    assert throttle.wait(10) == pytest.approx(sum(clock.sleeps)) and clock.sleeps
+
+
+def test_no_wait_is_exactly_zero_on_the_real_clock():
+    """No fake clock: timer overhead must not leak into wait_ms (it did on Linux)."""
+    r = LLMClient(FakeProvider(["a"]), "m").generate(PROMPT)
+    assert r.wait_ms == 0

@@ -2,7 +2,7 @@
 
 Reads, for each setup that has been run (no API call is made):
     reports/results/generation/<split>/<setup>.answers.jsonl            run_generation
-    reports/results/generation/<split>/<setup>.judgments.<judge>.jsonl  judge (the kept judge)
+    reports/results/generation/<split>/<setup>.judgments.<judge>.jsonl  judge (config `judge`)
     reports/results/judge_validation.json                               agreement
 
 Per question:
@@ -12,7 +12,7 @@ Per question:
     correctness           answered answerable questions, judge label vs the reference answer
 
 Each metric is a mean over its questions, with a 95% percentile-bootstrap interval over those
-questions. Every judge metric is shown next to the kept judge's agreement with the user's
+questions. Every judge metric is shown next to the judge's agreement with the user's
 20 hand grades: faithfulness and relevance are reliable; citation correctness and correctness
 (kappa below the 0.6 threshold) are indicative only.
 
@@ -47,11 +47,6 @@ SETUP_NAMES = {
     "hybrid": "Hybrid (RRF)",
     "hybrid_rerank": "Hybrid + reranker",
 }
-
-
-def kept_judge_model(config: dict) -> str:
-    judge = config["judge"]
-    return judge["model"] if judge["kept"] == "judge" else judge["fallback_model"]
 
 
 def score_questions(answers: dict, judgments: dict) -> list[dict]:
@@ -189,11 +184,11 @@ def main(argv: list[str] | None = None) -> None:
 
     config = load_config()
     seed, n_samples = config["seed"], config["generation_eval"]["bootstrap_samples"]
-    judge_model = kept_judge_model(config)
+    judge_model = config["judge"]["model"]
     validation = json.loads(
         (REPO_ROOT / config["paths"]["results_dir"] / "judge_validation.json").read_text("utf-8")
     )
-    agreement = validation["results"][validation["chosen"]]["metrics"]
+    agreement = validation["metrics"]
     n_graded = next(iter(agreement.values()))["n"]
 
     results = {}

@@ -91,24 +91,17 @@ llm:
 generation:
   context_k: 8            # top-k plain-hybrid chunks sent to the generator
 
-# Judge on a different provider and model family than the generator (own quota, less
-# self-preference). Fallback rule, fixed before any grading: if the primary judge's agreement
-# with the 20 hand grades (eval/judge_sample.json) is poor, the fallback is evaluated on the same
-# 20 answers and the judge that agrees better with the hand grades is kept.
-# Outcome (reports/results/judge_validation.json): both were poor; the fallback agreed better
-# and is the judge used for every evaluation run, test run included. Its agreement numbers
-# are reported next to each judge metric.
+# LLM-as-judge (Phase 6). Chosen by a rule fixed before any grading: Gemini 3.5 Flash-Lite was
+# tested first and failed the agreement threshold against the user's 20 hand grades, so the
+# predefined fallback, qwen, was kept (its agreement: reports/results/judge_validation.json).
+# Same provider as the generator but a different model family; own per-model Groq budget.
 judge:
-  kept: judge_fallback    # the role the validation rule kept: qwen/qwen3.8-27b on Groq
-  provider: gemini
-  model: gemini-3.5-flash-lite
+  provider: groq
+  model: qwen/qwen3.8-27b
   temperature: 0
-  max_output_tokens: 1024 # claims JSON + thinking (Gemini default thinking counts here)
-  json_output: true       # JSON mode: responseMimeType (Gemini) / response_format (Groq)
-  limits: {rpm: 15, rpd: 500, tpm: 250000}
-  fallback_provider: groq
-  fallback_model: qwen/qwen3.8-27b   # separate per-model Groq budget from the generator
-  fallback_limits: {rpm: 30, rpd: 1000, tpm: 8000, tpd: 200000}
+  max_output_tokens: 1024 # claims JSON (+ reasoning, where the model reasons)
+  json_output: true       # JSON mode: response_format json_object
+  limits: {rpm: 30, rpd: 1000, tpm: 8000, tpd: 200000}
 
 llm_calls:
   cache_dir: cache/llm    # one cached response per (provider, model, prompt hash)

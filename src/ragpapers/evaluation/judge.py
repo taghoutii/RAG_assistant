@@ -308,11 +308,6 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Judge generated answers (LLM-as-judge).")
     parser.add_argument("--setup", required=True)
     parser.add_argument("--split", default="dev", choices=["dev", "test"])
-    parser.add_argument(
-        "--role",
-        choices=["judge", "judge_fallback"],
-        help="default: the judge kept by the validation rule (config judge.kept)",
-    )
     parser.add_argument("--run", action="store_true", help="make the calls (default: estimate)")
     parser.add_argument(
         "--sample-only", action="store_true", help="only the 20 judge-validation answers"
@@ -326,8 +321,7 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit("no answers yet: run ragpapers.evaluation.run_generation first")
     questions = {q["id"]: q for q in load_questions(REPO_ROOT / config["paths"]["eval_questions"])}
     by_id = {c["chunk_id"]: c for c in load_chunks(chunks_path(config))}
-    role = args.role or config["judge"]["kept"]
-    client = make_client(config, role)
+    client = make_client(config, "judge")
     out = judgments_path(config, args.split, args.setup, client.model)
     done = load_done(out)
 
@@ -363,7 +357,7 @@ def main(argv: list[str] | None = None) -> None:
         for a in todo:
             q = questions[a["id"]]
             record = judge_answer(a, q, [by_id[i] for i in a["chunk_ids"]], client)
-            append_record(out, {**record, "setup": args.setup, "judge_role": role})
+            append_record(out, {**record, "setup": args.setup})
             errors = [k for k in ("grounding", "correctness") if "error" in record.get(k, {})]
             print(f"  {a['id']}: done" + (f" (format error: {errors})" if errors else ""))
     except DailyQuotaReached as err:

@@ -1,7 +1,6 @@
 import pytest
 
 from ragpapers.evaluation.agreement import (
-    choose_judge,
     cohen_kappa,
     judge_agreement,
     metric_agreement,
@@ -66,7 +65,7 @@ def test_missing_judge_labels_count_as_disagreement_and_abstentions_are_skipped(
     assert result["n"] == 4 and result["raw"] == 0.75
 
 
-def test_poor_if_any_metric_fails_and_choice_by_mean_score():
+def test_poor_if_any_metric_fails_and_mean_score():
     rule = RULE | {"metrics": ["faithfulness", "relevance"]}
     human = {f"q{i}": {"faithfulness": i % 2, "relevance": (i // 2) % 2} for i in range(20)}
     good = {i: dict(v) for i, v in human.items()}
@@ -74,12 +73,9 @@ def test_poor_if_any_metric_fails_and_choice_by_mean_score():
         i: {"faithfulness": v["faithfulness"], "relevance": 1} for i, v in human.items()
     }
 
-    primary = judge_agreement(human, bad_relevance, rule)
-    assert primary["poor"] and primary["metrics"]["faithfulness"]["passed"]
-    fallback = judge_agreement(human, good, rule)
-    assert not fallback["poor"] and fallback["mean_score"] == 1
-    assert choose_judge(primary, fallback) == "judge_fallback"
-    assert choose_judge(fallback, None) == "judge"  # not poor: no fallback needed
-    assert choose_judge(primary, primary) == "judge"  # tie: the primary stays
-    with pytest.raises(ValueError):
-        choose_judge(primary, None)
+    poor = judge_agreement(human, bad_relevance, rule)
+    assert poor["poor"] and poor["metrics"]["faithfulness"]["passed"]
+    assert not poor["metrics"]["relevance"]["passed"]
+    good_result = judge_agreement(human, good, rule)
+    assert not good_result["poor"] and good_result["mean_score"] == 1
+    assert poor["mean_score"] < good_result["mean_score"]

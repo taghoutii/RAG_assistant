@@ -300,7 +300,7 @@ def test_object_inside_prose_is_still_found():
     }
 
 
-def test_default_role_is_the_judge_kept_by_the_validation_rule(monkeypatch, capsys):
+def test_cli_uses_the_configured_judge(monkeypatch, capsys):
     roles = []
     monkeypatch.setattr(judge, "check_blind", lambda *a: None)
     monkeypatch.setattr(
@@ -316,6 +316,6 @@ def test_default_role_is_the_judge_kept_by_the_validation_rule(monkeypatch, caps
 
     monkeypatch.setattr(judge, "make_client", fake_make_client)
     judge.main(["--setup", "hybrid"])
-    judge.main(["--setup", "hybrid", "--role", "judge"])
-    assert roles == [CONFIG["judge"]["kept"], "judge"]
-    assert CONFIG["judge"]["kept"] == "judge_fallback"
+    assert roles == ["judge"]
+    with pytest.raises(SystemExit):
+        judge.main(["--setup", "hybrid", "--role", "judge_fallback"])  # no such option now

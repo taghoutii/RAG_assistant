@@ -1,6 +1,6 @@
 """LLM client: disk cache, per-minute throttle, retries with backoff, daily-quota stop.
 
-    client = make_client(config, "generator")          # or "judge", "judge_fallback"
+    client = make_client(config, "generator")          # or "judge"
     response = client.generate([Message("user", "...")])
 
 One `generate` call:
@@ -82,18 +82,24 @@ class MinuteThrottle:
         while self.calls and self.clock() - self.calls[0][0] >= 60:
             self.calls.popleft()
 
-    def wait(self, tokens: int) -> None:
-        """Sleep until one more call of about `tokens` tokens fits under both limits."""
+    def wait(self, tokens: int) -> float:
+        """Sleep until one more call of about `tokens` tokens fits under both limits.
+
+        Returns the seconds slept (the sum of the sleeps requested; exactly 0 if none).
+        """
+        slept = 0.0
         while True:
             self._forget_old()
             if not self.calls:
-                return  # always allow one call, even if its estimate exceeds the TPM limit
+                return slept  # always allow one call, even if its estimate exceeds the TPM limit
             too_many = self.rpm is not None and len(self.calls) + 1 > self.rpm
             used = sum(t for _, t in self.calls)
             too_big = self.tpm is not None and used + tokens > self.tpm
             if not (too_many or too_big):
-                return
-            self.sleep(60 - (self.clock() - self.calls[0][0]) + 0.1)
+                return slept
+            seconds = 60 - (self.clock() - self.calls[0][0]) + 0.1
+            self.sleep(seconds)
+            slept += seconds
 
     def record(self, tokens: int) -> None:
         self.calls.append((self.clock(), tokens))
@@ -132,7 +138,7 @@ class LLMClient:
         )
         self.max_retries = max_retries
         self.backoff_initial_s, self.backoff_max_s = backoff_initial_s, backoff_max_s
-        self.clock, self.sleep = clock, sleep
+        self.sleep = sleep
         self.rng = rng or random.Random()
 
     def _request(self, messages: list[Message], params: dict) -> LLMRequest:
@@ -172,23 +178,21 @@ class LLMClient:
         return delay * self.rng.uniform(0.5, 1.0)
 
     def _sleep(self, seconds: float) -> float:
-        """Sleep (backoff); return the seconds it took on the client's clock."""
-        start = self.clock()
+        """Sleep (backoff) and return the seconds slept."""
         self.sleep(seconds)
-        return self.clock() - start
+        return seconds
 
     def _send_with_retries(self, request: LLMRequest) -> tuple[LLMResponse, float, float]:
         """The response, the successful call's latency, and all time spent waiting (ms).
 
         Waiting (per-minute throttle, backoff after 429/5xx) is kept out of the latency, so
-        latency measures the API alone.
+        latency measures the API alone. The wait is the sum of the sleeps requested, not a
+        difference of two timer readings, so it is exactly 0 when nothing waited.
         """
         estimate = estimate_tokens(request.messages) + request.max_output_tokens
         waited = 0.0
         for attempt in range(self.max_retries + 1):
-            start = self.clock()
-            self.throttle.wait(estimate)
-            waited += self.clock() - start
+            waited += self.throttle.wait(estimate)
             call_start = time.perf_counter()
             try:
                 response = self.provider.send(request)
@@ -256,20 +260,12 @@ def build_provider(name: str, providers_cfg: dict, timeout_s: float) -> Provider
 
 
 def make_client(config: dict, role: str, env_file: str | Path = REPO_ROOT / ".env") -> LLMClient:
-    """The client for `role`: "generator" (config llm), "judge" or "judge_fallback"."""
+    """The client for `role`: "generator" (config `llm`) or "judge" (config `judge`)."""
     load_env(env_file)
-    if role == "generator":
-        section = config["llm"]
-        provider, model, limits = section["provider"], section["model"], section["limits"]
-    elif role == "judge":
-        section = config["judge"]
-        provider, model, limits = section["provider"], section["model"], section["limits"]
-    elif role == "judge_fallback":
-        section = config["judge"]
-        provider, model = section["fallback_provider"], section["fallback_model"]
-        limits = section["fallback_limits"]
-    else:
+    if role not in ("generator", "judge"):
         raise ValueError(f"unknown role {role!r}")
+    section = config["llm"] if role == "generator" else config["judge"]
+    provider, model, limits = section["provider"], section["model"], section["limits"]
 
     calls = config["llm_calls"]
     return LLMClient(

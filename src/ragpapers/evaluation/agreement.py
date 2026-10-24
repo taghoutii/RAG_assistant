@@ -9,10 +9,10 @@ The rule (fixed before any grading, see configs/default.yaml `judge_validation`)
 - per metric, over the sample answers both graded (abstentions have no labels);
 - skewed metric: one label is > skew_share of the user's grades. Kappa is unstable there
   (or undefined), so the metric uses raw agreement >= raw_min instead of kappa >= kappa_min;
-- the judge is poor if ANY metric fails its test;
-- if the primary judge is poor, the fallback judge is scored on the same answers, with the
-  same skew decisions (they come from the user's grades), and the judge with the higher mean
-  score (kappa, or raw agreement for skewed metrics) is kept.
+- the judge is poor if ANY metric fails its test; its mean score is the mean over metrics of
+  kappa (raw agreement for skewed metrics).
+The rule chose the configured judge: Gemini 3.5 Flash-Lite was tested first and was poor, so
+the predefined fallback, qwen, was scored on the same answers and kept (higher mean score).
 
 Usage (PowerShell, from the repo root, after both the grades and the judgments exist):
     python -m ragpapers.evaluation.agreement
@@ -86,15 +86,6 @@ def judge_agreement(human: dict[str, dict], judge: dict[str, dict], rule: dict) 
     }
 
 
-def choose_judge(primary: dict, fallback: dict | None) -> str:
-    """'judge' unless it is poor and the fallback agrees better (higher mean score)."""
-    if not primary["poor"]:
-        return "judge"
-    if fallback is None:
-        raise ValueError("the primary judge is poor: score the fallback on the same answers")
-    return "judge_fallback" if fallback["mean_score"] > primary["mean_score"] else "judge"
-
-
 def _labels(path) -> dict[str, dict]:
     return {qid: r["labels"] for qid, r in load_done(path).items()}
 
@@ -123,30 +114,15 @@ def main() -> None:
         raise SystemExit("the user's grades are incomplete")
     rule = {k: jv[k] for k in ("metrics", "kappa_min", "skew_share", "raw_min")}
 
-    results = {}
-    for role in ("judge", "judge_fallback"):
-        section = config["judge"]
-        model = section["model"] if role == "judge" else section["fallback_model"]
-        path = judgments_path(config, "dev", jv["setup"], model)
-        if path.exists():
-            labels = {i: v for i, v in _labels(path).items() if i in ids}
-            results[role] = judge_agreement(human, labels, rule) | {"model": model}
-            print(format_report(f"{role} ({model})", results[role]))
-    if "judge" not in results:
-        raise SystemExit("no judgments from the primary judge yet")
-
-    try:
-        chosen = choose_judge(results["judge"], results.get("judge_fallback"))
-    except ValueError as err:
-        print(f"\n{err}")
-        chosen = None
-    print(f"\nKept judge: {chosen}")
+    model = config["judge"]["model"]
+    path = judgments_path(config, "dev", jv["setup"], model)
+    if not path.exists():
+        raise SystemExit(f"no judgments from {model} yet")
+    labels = {i: v for i, v in _labels(path).items() if i in ids}
+    result = {"judge": model, "rule": rule, **judge_agreement(human, labels, rule)}
+    print(format_report(model, result))
     out = REPO_ROOT / config["paths"]["results_dir"] / "judge_validation.json"
-    out.write_text(
-        json.dumps({"rule": rule, "results": results, "chosen": chosen}, indent=1) + "\n",
-        encoding="utf-8",
-        newline="\n",
-    )
+    out.write_text(json.dumps(result, indent=1) + "\n", encoding="utf-8", newline="\n")
     print(f"Wrote {out}")
 
 
