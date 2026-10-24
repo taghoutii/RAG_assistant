@@ -258,6 +258,7 @@ def test_make_client_follows_the_config(tmp_path, keys):
         "temperature": 0,
         "max_output_tokens": config["llm"]["max_output_tokens"],
         "reasoning_effort": "low",
+        "json_output": False,
     }
     assert gen.throttle.rpm == config["llm"]["limits"]["rpm"]
 
@@ -284,3 +285,68 @@ def test_make_client_builds_ollama_without_a_key(tmp_path, monkeypatch):
     monkeypatch.setenv("OLLAMA_HOST", "http://127.0.0.1:9999")
     c = make_client(config, "generator", env_file=tmp_path / "none.env")
     assert isinstance(c.provider, OllamaProvider) and c.provider.host == "http://127.0.0.1:9999"
+
+
+# --- JSON mode and is_cached --------------------------------------------------------------------
+
+
+def test_json_mode_changes_the_hash_but_off_keeps_old_keys():
+    base = LLMRequest("m", PROMPT, 0.0, 10)
+    on = LLMRequest("m", PROMPT, 0.0, 10, json_output=True)
+    assert request_hash("groq", base) != request_hash("groq", on)
+    # The key of a request without JSON mode is what it was before the field existed.
+    old_style = json.dumps(
+        {
+            "provider": "groq",
+            "model": "m",
+            "messages": [{"role": "user", "content": "What is RRF?"}],
+            "temperature": 0.0,
+            "max_output_tokens": 10,
+            "reasoning_effort": None,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+    import hashlib
+
+    assert request_hash("groq", base) == hashlib.sha256(old_style.encode()).hexdigest()
+
+
+def test_is_cached(tmp_path):
+    c, fake, _ = client(["answer"], tmp_path)
+    assert not c.is_cached(PROMPT)
+    c.generate(PROMPT)
+    assert c.is_cached(PROMPT) and not c.is_cached(PROMPT, temperature=0.5)
+    assert len(fake.requests) == 1
+
+
+def test_judge_clients_use_json_mode(tmp_path, keys):
+    config = load_config()
+    assert make_client(config, "judge", env_file=tmp_path / "x").defaults["json_output"] is True
+    assert make_client(config, "judge_fallback", env_file=tmp_path / "x").defaults["json_output"]
+    assert (
+        make_client(config, "generator", env_file=tmp_path / "x").defaults["json_output"] is False
+    )
+
+
+# --- latency vs waiting -------------------------------------------------------------------------
+
+
+def test_latency_excludes_throttle_and_backoff_waits():
+    c, _, clock = client(
+        ["a", RateLimited("slow", retry_after=5), "b"], limits={"rpm": 1, "tpm": None}
+    )
+    first = c.generate([Message("user", "one")])
+    second = c.generate([Message("user", "two")])  # waits ~60 s (RPM) + ~5 s (Retry-After)
+    assert first.wait_ms == 0
+    assert second.wait_ms == pytest.approx(1000 * sum(clock.sleeps))
+    assert second.wait_ms > 60_000
+    assert second.latency_ms < 1000  # the fake API call itself is instant
+
+
+def test_wait_ms_is_cached_with_the_response(tmp_path):
+    c, _, _ = client(["a"], tmp_path)
+    c.generate(PROMPT)
+    again = c.generate(PROMPT)
+    assert again.cached and again.wait_ms == 0

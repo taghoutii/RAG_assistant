@@ -1,0 +1,20 @@
+{"id": "q101", "type": "factual", "abstained": false, "faithfulness": 1, "citation_correctness": 1, "relevance": 1, "correctness": 1, "notes": "Correctness: ~500 steps matches 'several hundred'; asynchrony and staleness treated as side details."}
+{"id": "q102", "type": "factual", "abstained": false, "faithfulness": 1, "citation_correctness": 1, "relevance": 1, "correctness": 1, "notes": ""}
+{"id": "q106", "type": "factual", "abstained": false, "faithfulness": 1, "citation_correctness": 1, "relevance": 1, "correctness": 1, "notes": ""}
+{"id": "q114", "type": "factual", "abstained": true, "faithfulness": null, "citation_correctness": null, "relevance": null, "correctness": null, "notes": ""}
+{"id": "q205", "type": "factual", "abstained": false, "faithfulness": 1, "citation_correctness": 1, "relevance": 1, "correctness": 1, "notes": "Borderline faithfulness: 'e.g.' and 'such as' slightly generalize the two filters."}
+{"id": "q206", "type": "factual", "abstained": false, "faithfulness": 1, "citation_correctness": 1, "relevance": 1, "correctness": 1, "notes": ""}
+{"id": "q209", "type": "factual", "abstained": false, "faithfulness": 1, "citation_correctness": 0, "relevance": 1, "correctness": 1, "notes": "Citation: first sentence uncited."}
+{"id": "q307", "type": "factual", "abstained": false, "faithfulness": 1, "citation_correctness": 1, "relevance": 1, "correctness": 1, "notes": "Borderline correctness: no magnitude, no mention that some CoT data is needed."}
+{"id": "q308", "type": "factual", "abstained": false, "faithfulness": 1, "citation_correctness": 0, "relevance": 1, "correctness": 1, "notes": "Citation: first two sentences uncited."}
+{"id": "q309", "type": "factual", "abstained": false, "faithfulness": 1, "citation_correctness": 0, "relevance": 1, "correctness": 1, "notes": "Citation: first and last sentences uncited."}
+{"id": "q406", "type": "factual", "abstained": false, "faithfulness": 1, "citation_correctness": 1, "relevance": 1, "correctness": 1, "notes": "Dagger citations read as [1]."}
+{"id": "q408", "type": "factual", "abstained": false, "faithfulness": 1, "citation_correctness": 1, "relevance": 1, "correctness": 1, "notes": ""}
+{"id": "q501", "type": "factual", "abstained": false, "faithfulness": 1, "citation_correctness": 1, "relevance": 1, "correctness": 1, "notes": ""}
+{"id": "q507", "type": "factual", "abstained": false, "faithfulness": 1, "citation_correctness": 1, "relevance": 1, "correctness": 1, "notes": ""}
+{"id": "q107", "type": "comparison", "abstained": false, "faithfulness": 0, "citation_correctness": 0, "relevance": 1, "correctness": 0, "notes": "RAG 'attends to documents together' unsupported by [3]; final joint-attention sentence unsupported and uncited; contradicts the key RAG/FiD distinction."}
+{"id": "q108", "type": "comparison", "abstained": false, "faithfulness": 0, "citation_correctness": 0, "relevance": 1, "correctness": 0, "notes": "'0.388 vs 0.296' and '0.654 vs 0.406' are ANCE/DeepCT scores, not DPR; misses DPR's own-paper win and that DPR generalizes worst."}
+{"id": "q211", "type": "comparison", "abstained": false, "faithfulness": 1, "citation_correctness": 0, "relevance": 1, "correctness": 1, "notes": "Citation: second sentence uncited. Dagger citations read as [n]."}
+{"id": "q409", "type": "comparison", "abstained": false, "faithfulness": 1, "citation_correctness": 0, "relevance": 1, "correctness": 1, "notes": "'In parallel' and 'Wq, Wv' only in uncited passage [4]. Borderline faithfulness: 'after the original layers'."}
+{"id": "q410", "type": "comparison", "abstained": false, "faithfulness": 1, "citation_correctness": 1, "relevance": 1, "correctness": 0, "notes": "LoRA headline saving (1.2TB to 350GB) missing."}
+{"id": "q509", "type": "comparison", "abstained": false, "faithfulness": 1, "citation_correctness": 1, "relevance": 1, "correctness": 0, "notes": "ReAct half of the question missing."}

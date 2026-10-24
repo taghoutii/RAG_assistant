@@ -284,3 +284,27 @@ def test_fake_provider_replays_its_script_and_records_requests():
 def test_real_http_is_blocked_in_tests():
     with pytest.raises(RuntimeError, match="network access blocked"):
         GroqProvider(api_key="k").session.post("https://api.groq.com/openai/v1/models", json={})
+
+
+# --- JSON mode (the judge) ----------------------------------------------------------------------
+
+
+def json_request(model="m"):
+    return LLMRequest(model, MESSAGES, 0.0, 256, json_output=True)
+
+
+def test_json_mode_per_provider():
+    assert GroqProvider(api_key="k").payload(json_request())["response_format"] == {
+        "type": "json_object"
+    }
+    gemini = GeminiProvider(api_key="k").payload(json_request())
+    assert gemini["generationConfig"]["responseMimeType"] == "application/json"
+    assert OllamaProvider().payload(json_request())["format"] == "json"
+
+
+def test_no_json_fields_when_json_mode_is_off():
+    assert "response_format" not in GroqProvider(api_key="k").payload(request())
+    assert (
+        "responseMimeType" not in GeminiProvider(api_key="k").payload(request())["generationConfig"]
+    )
+    assert "format" not in OllamaProvider().payload(request())

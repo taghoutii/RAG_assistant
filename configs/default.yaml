@@ -95,11 +95,16 @@ generation:
 # self-preference). Fallback rule, fixed before any grading: if the primary judge's agreement
 # with the 20 hand grades (eval/judge_sample.json) is poor, the fallback is evaluated on the same
 # 20 answers and the judge that agrees better with the hand grades is kept.
+# Outcome (reports/results/judge_validation.json): both were poor; the fallback agreed better
+# and is the judge used for every evaluation run, test run included. Its agreement numbers
+# are reported next to each judge metric.
 judge:
+  kept: judge_fallback    # the role the validation rule kept: qwen/qwen3.8-27b on Groq
   provider: gemini
   model: gemini-3.5-flash-lite
   temperature: 0
-  max_output_tokens: 512  # answer + thinking (Gemini default thinking)
+  max_output_tokens: 1024 # claims JSON + thinking (Gemini default thinking counts here)
+  json_output: true       # JSON mode: responseMimeType (Gemini) / response_format (Groq)
   limits: {rpm: 15, rpd: 500, tpm: 250000}
   fallback_provider: groq
   fallback_model: qwen/qwen3.8-27b   # separate per-model Groq budget from the generator
@@ -123,3 +128,23 @@ providers:
   ollama:
     host_env: OLLAMA_HOST
     default_host: http://localhost:11434
+
+# Generation evaluation (Phase 6). Answers and judgments are written as resumable JSONL to
+# reports/results/generation/<split>/.
+generation_eval:
+  setups: [bm25, dense, hybrid, hybrid_rerank]   # the retrieval setups, as in the retrieval table
+  chars_per_token: 3.93     # prompt-size estimate before a run (calibrated on real Groq calls)
+  bootstrap_samples: 1000
+
+# Judge validation: the user's blind grades of 20 hybrid dev answers vs the judge's.
+# Poor = on ANY metric, kappa < kappa_min; if one label is > skew_share of the user's grades
+# on a metric, that metric uses raw agreement >= raw_min instead. Fixed before any grading.
+judge_validation:
+  sample: eval/judge_sample.json
+  human_grades: eval/human_grades.jsonl
+  grading_sheet: eval/grading/sheet.md    # gitignored: contains corpus text
+  setup: hybrid
+  metrics: [faithfulness, citation_correctness, relevance, correctness]
+  kappa_min: 0.6
+  skew_share: 0.85
+  raw_min: 0.85

@@ -36,6 +36,7 @@ class LLMRequest:
     temperature: float
     max_output_tokens: int
     reasoning_effort: str | None = None  # Groq reasoning models only (e.g. gpt-oss)
+    json_output: bool = False  # ask the API for a JSON object (the judge)
 
 
 @dataclass
@@ -51,7 +52,8 @@ class LLMResponse:
     response_id: str | None = None
     system_fingerprint: str | None = None
     # Filled in by the client:
-    latency_ms: float | None = None
+    latency_ms: float | None = None  # the successful API call alone
+    wait_ms: float | None = None  # throttle + backoff waits; None in caches older than this field
     cached: bool = False
     request_hash: str | None = None
     created_at: str | None = None
@@ -138,6 +140,8 @@ class GroqProvider(Provider):
         }
         if request.reasoning_effort is not None:
             payload["reasoning_effort"] = request.reasoning_effort
+        if request.json_output:
+            payload["response_format"] = {"type": "json_object"}
         return payload
 
     def send(self, request: LLMRequest) -> LLMResponse:
@@ -205,6 +209,8 @@ class GeminiProvider(Provider):
         }
         if system:
             payload["systemInstruction"] = {"parts": [{"text": "\n\n".join(system)}]}
+        if request.json_output:
+            payload["generationConfig"]["responseMimeType"] = "application/json"
         return payload
 
     def send(self, request: LLMRequest) -> LLMResponse:
@@ -271,7 +277,7 @@ class OllamaProvider(Provider):
     def payload(self, request: LLMRequest) -> dict:
         if request.reasoning_effort is not None:
             raise ValueError("ollama: reasoning_effort is not supported by this adapter")
-        return {
+        payload = {
             "model": request.model,
             "messages": [{"role": m.role, "content": m.content} for m in request.messages],
             "stream": False,
@@ -280,6 +286,9 @@ class OllamaProvider(Provider):
                 "num_predict": request.max_output_tokens,
             },
         }
+        if request.json_output:
+            payload["format"] = "json"
+        return payload
 
     def send(self, request: LLMRequest) -> LLMResponse:
         try:
