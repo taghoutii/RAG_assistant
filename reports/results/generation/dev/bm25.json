@@ -1,0 +1,548 @@
+{
+ "name": "bm25",
+ "phase": "generation/dev",
+ "created_at": "2026-10-25T19:41:22+00:00",
+ "split": "dev",
+ "n_questions": 37,
+ "setup": {
+  "retriever": "bm25",
+  "context_k": 8,
+  "generator": "openai/gpt-oss-120b",
+  "generator_settings": {
+   "temperature": 0,
+   "max_output_tokens": 1024,
+   "reasoning_effort": "low"
+  },
+  "judge": "qwen/qwen3.8-27b",
+  "judge_agreement": {
+   "faithfulness": {
+    "n": 19,
+    "kappa": 1.0,
+    "raw": 1.0,
+    "human_majority_share": 0.8947368421052632,
+    "skewed": true,
+    "score": 1.0,
+    "passed": true
+   },
+   "citation_correctness": {
+    "n": 19,
+    "kappa": 0.518987341772152,
+    "raw": 0.7894736842105263,
+    "human_majority_share": 0.631578947368421,
+    "skewed": false,
+    "score": 0.518987341772152,
+    "passed": false
+   },
+   "relevance": {
+    "n": 19,
+    "kappa": null,
+    "raw": 1.0,
+    "human_majority_share": 1.0,
+    "skewed": true,
+    "score": 1.0,
+    "passed": true
+   },
+   "correctness": {
+    "n": 19,
+    "kappa": 0.46478873239436624,
+    "raw": 0.7894736842105263,
+    "human_majority_share": 0.7894736842105263,
+    "skewed": false,
+    "score": 0.46478873239436624,
+    "passed": false
+   }
+  }
+ },
+ "metrics": {
+  "abstention_accuracy": {
+   "n": 37,
+   "n_missing": 0,
+   "mean": 0.8918918918918919,
+   "ci_low": 0.7837837837837838,
+   "ci_high": 0.972972972972973
+  },
+  "faithfulness": {
+   "n": 28,
+   "n_missing": 0,
+   "mean": 0.9285714285714286,
+   "ci_low": 0.8214285714285714,
+   "ci_high": 1.0
+  },
+  "citation_correctness": {
+   "n": 28,
+   "n_missing": 0,
+   "mean": 0.7857142857142857,
+   "ci_low": 0.6428571428571429,
+   "ci_high": 0.9285714285714286
+  },
+  "relevance": {
+   "n": 28,
+   "n_missing": 0,
+   "mean": 1.0,
+   "ci_low": 1.0,
+   "ci_high": 1.0
+  },
+  "correctness": {
+   "n": 27,
+   "n_missing": 0,
+   "mean": 0.5925925925925926,
+   "ci_low": 0.4074074074074074,
+   "ci_high": 0.7777777777777778
+  }
+ },
+ "usage": {
+  "n_queries": 37,
+  "input_tokens_mean": 2785.324324324324,
+  "output_tokens_mean": 131.13513513513513,
+  "reasoning_tokens_mean": 42.513513513513516,
+  "generation_latency_ms_p50": 1012.096400023438,
+  "generation_latency_n": 37,
+  "cost_usd": 0.0
+ },
+ "per_question": [
+  {
+   "id": "q101",
+   "type": "factual",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 1,
+    "citation_correctness": 1,
+    "relevance": 1,
+    "correctness": 1
+   }
+  },
+  {
+   "id": "q102",
+   "type": "factual",
+   "abstained": true,
+   "scores": {
+    "abstention_accuracy": 0,
+    "faithfulness": null,
+    "citation_correctness": null,
+    "relevance": null,
+    "correctness": null
+   }
+  },
+  {
+   "id": "q106",
+   "type": "factual",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 1,
+    "citation_correctness": 1,
+    "relevance": 1,
+    "correctness": 0
+   }
+  },
+  {
+   "id": "q107",
+   "type": "comparison",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 0,
+    "citation_correctness": 0,
+    "relevance": 1,
+    "correctness": 0
+   }
+  },
+  {
+   "id": "q108",
+   "type": "comparison",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 1,
+    "citation_correctness": 1,
+    "relevance": 1,
+    "correctness": 0
+   }
+  },
+  {
+   "id": "q109",
+   "type": "comparison",
+   "abstained": true,
+   "scores": {
+    "abstention_accuracy": 0,
+    "faithfulness": null,
+    "citation_correctness": null,
+    "relevance": null,
+    "correctness": null
+   }
+  },
+  {
+   "id": "q110",
+   "type": "unanswerable",
+   "abstained": true,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": null,
+    "citation_correctness": null,
+    "relevance": null,
+    "correctness": null
+   }
+  },
+  {
+   "id": "q111",
+   "type": "unanswerable",
+   "abstained": true,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": null,
+    "citation_correctness": null,
+    "relevance": null,
+    "correctness": null
+   }
+  },
+  {
+   "id": "q114",
+   "type": "factual",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 1,
+    "citation_correctness": 1,
+    "relevance": 1,
+    "correctness": 0
+   }
+  },
+  {
+   "id": "q202",
+   "type": "factual",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 1,
+    "citation_correctness": 1,
+    "relevance": 1,
+    "correctness": 1
+   }
+  },
+  {
+   "id": "q204",
+   "type": "factual",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 1,
+    "citation_correctness": 1,
+    "relevance": 1,
+    "correctness": 1
+   }
+  },
+  {
+   "id": "q205",
+   "type": "factual",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 1,
+    "citation_correctness": 1,
+    "relevance": 1,
+    "correctness": 1
+   }
+  },
+  {
+   "id": "q206",
+   "type": "factual",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 1,
+    "citation_correctness": 1,
+    "relevance": 1,
+    "correctness": 1
+   }
+  },
+  {
+   "id": "q209",
+   "type": "factual",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 1,
+    "citation_correctness": 1,
+    "relevance": 1,
+    "correctness": 1
+   }
+  },
+  {
+   "id": "q210",
+   "type": "comparison",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 1,
+    "citation_correctness": 1,
+    "relevance": 1,
+    "correctness": 0
+   }
+  },
+  {
+   "id": "q211",
+   "type": "comparison",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 1,
+    "citation_correctness": 1,
+    "relevance": 1,
+    "correctness": 1
+   }
+  },
+  {
+   "id": "q214",
+   "type": "unanswerable",
+   "abstained": true,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": null,
+    "citation_correctness": null,
+    "relevance": null,
+    "correctness": null
+   }
+  },
+  {
+   "id": "q215",
+   "type": "unanswerable",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 0,
+    "faithfulness": 1,
+    "citation_correctness": 0,
+    "relevance": 1,
+    "correctness": null
+   }
+  },
+  {
+   "id": "q305",
+   "type": "factual",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 1,
+    "citation_correctness": 1,
+    "relevance": 1,
+    "correctness": 0
+   }
+  },
+  {
+   "id": "q307",
+   "type": "factual",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 1,
+    "citation_correctness": 1,
+    "relevance": 1,
+    "correctness": 1
+   }
+  },
+  {
+   "id": "q308",
+   "type": "factual",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 1,
+    "citation_correctness": 1,
+    "relevance": 1,
+    "correctness": 0
+   }
+  },
+  {
+   "id": "q309",
+   "type": "factual",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 1,
+    "citation_correctness": 1,
+    "relevance": 1,
+    "correctness": 1
+   }
+  },
+  {
+   "id": "q311",
+   "type": "comparison",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 1,
+    "citation_correctness": 0,
+    "relevance": 1,
+    "correctness": 1
+   }
+  },
+  {
+   "id": "q317",
+   "type": "unanswerable",
+   "abstained": true,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": null,
+    "citation_correctness": null,
+    "relevance": null,
+    "correctness": null
+   }
+  },
+  {
+   "id": "q401",
+   "type": "factual",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 1,
+    "citation_correctness": 0,
+    "relevance": 1,
+    "correctness": 1
+   }
+  },
+  {
+   "id": "q402",
+   "type": "factual",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 1,
+    "citation_correctness": 1,
+    "relevance": 1,
+    "correctness": 1
+   }
+  },
+  {
+   "id": "q404",
+   "type": "factual",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 1,
+    "citation_correctness": 1,
+    "relevance": 1,
+    "correctness": 1
+   }
+  },
+  {
+   "id": "q406",
+   "type": "factual",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 1,
+    "citation_correctness": 1,
+    "relevance": 1,
+    "correctness": 1
+   }
+  },
+  {
+   "id": "q408",
+   "type": "factual",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 1,
+    "citation_correctness": 1,
+    "relevance": 1,
+    "correctness": 1
+   }
+  },
+  {
+   "id": "q409",
+   "type": "comparison",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 1,
+    "citation_correctness": 1,
+    "relevance": 1,
+    "correctness": 0
+   }
+  },
+  {
+   "id": "q410",
+   "type": "comparison",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 0,
+    "citation_correctness": 0,
+    "relevance": 1,
+    "correctness": 0
+   }
+  },
+  {
+   "id": "q414",
+   "type": "unanswerable",
+   "abstained": true,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": null,
+    "citation_correctness": null,
+    "relevance": null,
+    "correctness": null
+   }
+  },
+  {
+   "id": "q501",
+   "type": "factual",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 1,
+    "citation_correctness": 1,
+    "relevance": 1,
+    "correctness": 1
+   }
+  },
+  {
+   "id": "q504",
+   "type": "factual",
+   "abstained": true,
+   "scores": {
+    "abstention_accuracy": 0,
+    "faithfulness": null,
+    "citation_correctness": null,
+    "relevance": null,
+    "correctness": null
+   }
+  },
+  {
+   "id": "q507",
+   "type": "factual",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 1,
+    "citation_correctness": 1,
+    "relevance": 1,
+    "correctness": 0
+   }
+  },
+  {
+   "id": "q509",
+   "type": "comparison",
+   "abstained": false,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": 1,
+    "citation_correctness": 0,
+    "relevance": 1,
+    "correctness": 0
+   }
+  },
+  {
+   "id": "q510",
+   "type": "unanswerable",
+   "abstained": true,
+   "scores": {
+    "abstention_accuracy": 1,
+    "faithfulness": null,
+    "citation_correctness": null,
+    "relevance": null,
+    "correctness": null
+   }
+  }
+ ]
+}
