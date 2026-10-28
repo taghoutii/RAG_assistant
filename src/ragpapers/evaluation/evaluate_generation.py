@@ -28,6 +28,7 @@ import statistics
 from datetime import UTC, datetime
 
 from ragpapers.config import REPO_ROOT, load_config
+from ragpapers.evaluation.freeze import require_final_flag
 from ragpapers.evaluation.judge import GROUNDING_METRICS, METRICS, answers_path, judgments_path
 from ragpapers.evaluation.scoring import bootstrap_ci, write_result
 from ragpapers.generation.runlog import load_done
@@ -106,6 +107,13 @@ def usage(answers: dict) -> dict:
     }
 
 
+def check_same_commit(commit: str, *record_sets: dict) -> None:
+    """Test results must all come from the frozen commit; refuse to mix states."""
+    found = {r.get("commit") for records in record_sets for r in records.values()}
+    if found != {commit}:
+        raise SystemExit(f"test records come from {sorted(map(str, found))}, not {commit}")
+
+
 def fmt_metric(m: dict) -> str:
     if "mean" not in m:
         return "not judged" if m["n_missing"] else "-"
@@ -180,8 +188,10 @@ def make_report(results: dict, agreement: dict, meta: dict) -> str:
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Generation results table (no API calls).")
     parser.add_argument("--split", default="dev", choices=["dev", "test"])
+    parser.add_argument("--final-test-run", action="store_true", help="required for --split test")
     args = parser.parse_args(argv)
 
+    commit = require_final_flag(args.split, args.final_test_run)  # None on dev
     config = load_config()
     seed, n_samples = config["seed"], config["generation_eval"]["bootstrap_samples"]
     judge_model = config["judge"]["model"]
@@ -198,6 +208,8 @@ def main(argv: list[str] | None = None) -> None:
         if not answers:
             continue
         judgments = load_done(judgments_path(config, args.split, setup, judge_model))
+        if commit is not None:
+            check_same_commit(commit, answers, judgments)
         per_question = score_questions(answers, judgments)
         some = next(iter(answers.values()))
         results[setup] = {
@@ -221,6 +233,8 @@ def main(argv: list[str] | None = None) -> None:
             "usage": usage(answers),
             "per_question": per_question,
         }
+        if commit is not None:
+            results[setup]["commit"] = commit  # the frozen state of the test run
         write_result(results[setup], REPO_ROOT / config["paths"]["results_dir"])
     if not results:
         raise SystemExit(f"no {args.split} answers yet: run ragpapers.evaluation.run_generation")

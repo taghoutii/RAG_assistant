@@ -31,6 +31,7 @@ import re
 
 from ragpapers.chunking.build import chunks_path, load_chunks
 from ragpapers.config import REPO_ROOT, load_config
+from ragpapers.evaluation.freeze import require_final_flag
 from ragpapers.evaluation.questions import load_questions
 from ragpapers.generation.client import DailyQuotaReached, make_client, safe_name
 from ragpapers.generation.prompt import format_context
@@ -312,8 +313,10 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--sample-only", action="store_true", help="only the 20 judge-validation answers"
     )
+    parser.add_argument("--final-test-run", action="store_true", help="required for --split test")
     args = parser.parse_args(argv)
 
+    commit = require_final_flag(args.split, args.final_test_run)  # None on dev
     config = load_config()
     check_blind(config, args.split, args.setup)
     answers = list(load_done(answers_path(config, args.split, args.setup)).values())
@@ -357,7 +360,10 @@ def main(argv: list[str] | None = None) -> None:
         for a in todo:
             q = questions[a["id"]]
             record = judge_answer(a, q, [by_id[i] for i in a["chunk_ids"]], client)
-            append_record(out, {**record, "setup": args.setup})
+            record = {**record, "setup": args.setup}
+            if commit is not None:
+                record["commit"] = commit  # the frozen state of the test run
+            append_record(out, record)
             errors = [k for k in ("grounding", "correctness") if "error" in record.get(k, {})]
             print(f"  {a['id']}: done" + (f" (format error: {errors})" if errors else ""))
     except DailyQuotaReached as err:
