@@ -1,19 +1,9 @@
 """Generate answers for every question of a split with one retrieval setup (resumable).
 
-    bm25            BM25 top-k
-    dense           dense top-k
-    hybrid          RRF of BM25 + dense, top-k (the final system)
-    hybrid_rerank   the top `rerank_depth` fused chunks reranked by the cross-encoder, top-k
-
-k = `generation.context_k`. Each finished question is appended at once to
-reports/results/generation/<split>/<setup>.answers.jsonl; a stopped run (daily quota, crash)
-resumes from there, and every LLM reply is cached, so nothing is paid for twice.
-
-Usage (PowerShell, from the repo root):
-    python -m ragpapers.evaluation.run_generation --setup hybrid          # estimate only
-    python -m ragpapers.evaluation.run_generation --setup hybrid --run    # make the calls
-
-The test split is held out: it also needs --final-test-run.
+bm25            BM25 top-k
+dense           dense top-k
+hybrid          RRF of BM25 + dense, top-k (the final system)
+hybrid_rerank   the top `rerank_depth` fused chunks reranked by the cross-encoder, top-k
 """
 
 import argparse

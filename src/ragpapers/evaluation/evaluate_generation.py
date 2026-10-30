@@ -1,25 +1,11 @@
-"""Generation results per retrieval setup: metrics with 95% intervals, tokens, latency.
-
-Reads, for each setup that has been run (no API call is made):
-    reports/results/generation/<split>/<setup>.answers.jsonl            run_generation
-    reports/results/generation/<split>/<setup>.judgments.<judge>.jsonl  judge (config `judge`)
-    reports/results/judge_validation.json                               agreement
-
-Per question:
-    abstention_accuracy   all questions, by rule: abstained iff the question is unanswerable
+"""Per question:
+    abstention_accuracy   all questions, by rule: abstained if the question is unanswerable
     faithfulness, citation_correctness, relevance
                           answered questions (abstentions have no claims), judge labels
     correctness           answered answerable questions, judge label vs the reference answer
 
 Each metric is a mean over its questions, with a 95% percentile-bootstrap interval over those
-questions. Every judge metric is shown next to the judge's agreement with the user's
-20 hand grades: faithfulness and relevance are reliable; citation correctness and correctness
-(kappa below the 0.6 threshold) are indicative only.
-
-Writes reports/results/generation/<split>/<setup>.json and reports/generation[_test].md.
-
-Usage (PowerShell, from the repo root):
-    python -m ragpapers.evaluation.evaluate_generation              # dev
+questions.
 """
 
 import argparse

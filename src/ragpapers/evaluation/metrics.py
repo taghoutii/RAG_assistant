@@ -16,8 +16,6 @@ The pipeline for one question is:
     reciprocal_rank(credited)
     ndcg_at_k(credited, len(groups), k)
 MRR over a question set is the mean of `reciprocal_rank` over its (answerable) questions.
-Unanswerable questions have no evidence and are excluded from these metrics.
-A group of one quote behaves exactly like the original single-quote scoring.
 """
 
 import math

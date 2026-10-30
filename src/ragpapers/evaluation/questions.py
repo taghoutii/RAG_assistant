@@ -1,4 +1,4 @@
-"""Load and validate the evaluation set (eval/questions.jsonl)."""
+"""Load and validate the evaluation set."""
 
 import argparse
 import json

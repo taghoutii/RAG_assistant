@@ -3,7 +3,7 @@
 The test split is used once, with the configuration fixed on dev. Before each test step,
 `frozen_commit` checks that no tracked file under the frozen paths (code, config, eval set,
 corpus manifest) differs from the current commit, and returns that commit's hash; every test
-result file records it. Result files written by the run itself (reports/) are not frozen.
+result file records it.
 """
 
 import subprocess

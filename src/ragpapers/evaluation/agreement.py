@@ -1,21 +1,6 @@
-"""Judge validation: does the judge grade like the user? Cohen's kappa + raw agreement.
-
-Raw agreement is the share of answers where both give the same label. Cohen's kappa corrects
-it for chance: kappa = (p_observed - p_chance) / (1 - p_chance), where p_chance is the
-agreement two raters with these label frequencies would reach by luck. 1 = perfect, 0 = no
-better than chance.
-
-The rule (fixed before any grading, see configs/default.yaml `judge_validation`):
-- per metric, over the sample answers both graded (abstentions have no labels);
-- skewed metric: one label is > skew_share of the user's grades. Kappa is unstable there
-  (or undefined), so the metric uses raw agreement >= raw_min instead of kappa >= kappa_min;
-- the judge is poor if ANY metric fails its test; its mean score is the mean over metrics of
+"""Judge validation: Cohen's kappa + raw agreement.
+the judge is poor if ANY metric fails its test; its mean score is the mean over metrics of
   kappa (raw agreement for skewed metrics).
-The rule chose the configured judge: Gemini 3.5 Flash-Lite was tested first and was poor, so
-the predefined fallback, qwen, was scored on the same answers and kept (higher mean score).
-
-Usage (PowerShell, from the repo root, after both the grades and the judgments exist):
-    python -m ragpapers.evaluation.agreement
 """
 
 import json

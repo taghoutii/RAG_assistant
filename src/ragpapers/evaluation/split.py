@@ -3,10 +3,7 @@
 Each question type is shuffled with a fixed seed and `test_fraction` of it goes to the test set,
 so both sets keep the same factual/comparison/unanswerable mix.
 
-The split is created ONCE, after the questions are final, and is then never changed: the test set
-is only used for the final report. The script refuses to overwrite an existing split unless
---force is given.
-
+The split is created once, after the questions are final, and is then never changed
 """
 
 import argparse

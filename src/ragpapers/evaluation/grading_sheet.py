@@ -1,19 +1,4 @@
-"""The user's blind grading sheet for the 20 judge-validation answers, and the grades file.
-
-Writes:
-    eval/grading/sheet.md     what to read (gitignored: it contains corpus text)
-    eval/human_grades.jsonl   where the grades go: one line per answer, labels null until
-                              filled in with 0 or 1 (never overwritten once it exists)
-
-The sheet shows exactly what the judge sees, in two parts:
-    Part 1  question + the 8 numbered passages + the answer:
-            faithfulness, citation correctness, relevance (no reference answer anywhere)
-    Part 2  question + the reference answer + the answer: correctness
-Grade all of Part 1 before reading Part 2. No judge grade exists or is shown at this point.
-
-Usage (PowerShell, from the repo root, after the hybrid dev answers exist):
-    python -m ragpapers.evaluation.grading_sheet
-"""
+"""grading sheet for the 20 judge-validation answers, and the grades file."""
 
 import json
 

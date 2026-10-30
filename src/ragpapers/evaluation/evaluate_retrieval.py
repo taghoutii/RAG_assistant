@@ -1,26 +1,10 @@
 """Retrieval evaluation on dev (and once on test): BM25, dense, hybrid (RRF), hybrid + reranker.
 
-All four setups use the same chunk set and the same first-stage runs, so their per-question
-scores are paired:
     bm25            BM25 top-n
     dense           dense top-n
     hybrid          RRF of BM25 top-`fusion_depth` and dense top-`fusion_depth`, top-n
     hybrid+rerank   the top `rerank_depth` fused chunks reranked by the cross-encoder, top-n
-n = `retrieval_eval.top_n`. Quality is scored on the answerable dev questions against each
-question's evidence groups (quote + alternatives, see eval/README.md): Recall@k, MRR and nDCG@k
-with 95% bootstrap intervals, plus paired differences against hybrid. Stage latency is measured
-on every dev question after a warm-up, and reported as p50 per stage and per setup.
-
-Each setup writes its config + metrics to reports/results/retrieval/, and the table is written
-to reports/retrieval.md.
-
-Usage (PowerShell, from the repo root, on an idle machine):
-    python -m ragpapers.chunking.build                   # chunk file (once)
-    python -m ragpapers.evaluation.evaluate_retrieval    # first run embeds the chunks (cached)
-    python -m ragpapers.evaluation.evaluate_retrieval --split test --final-test-run   # once
-
-The test split writes reports/results/retrieval/test/ and reports/retrieval_test.md (dev
-results are never overwritten), and records the frozen commit in every result file.
+n = `retrieval_eval.top_n`.
 """
 
 import argparse
