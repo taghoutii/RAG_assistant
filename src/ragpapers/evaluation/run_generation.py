@@ -19,6 +19,7 @@ The test split is held out: it also needs --final-test-run.
 import argparse
 
 from ragpapers.config import REPO_ROOT, load_config
+from ragpapers.evaluation.freeze import require_final_flag
 from ragpapers.evaluation.judge import answers_path
 from ragpapers.evaluation.questions import load_questions
 from ragpapers.evaluation.split import load_split
@@ -87,8 +88,7 @@ def main(argv: list[str] | None = None) -> None:
     config = load_config()
     if args.setup not in config["generation_eval"]["setups"]:
         raise SystemExit(f"unknown setup {args.setup!r}: {config['generation_eval']['setups']}")
-    if args.split == "test" and not args.final_test_run:
-        raise SystemExit("the test split is held out: add --final-test-run for the final run")
+    commit = require_final_flag(args.split, args.final_test_run)  # None on dev
 
     split_ids = load_split(REPO_ROOT / config["paths"]["eval_splits"], args.split)
     questions = [
@@ -136,7 +136,10 @@ def main(argv: list[str] | None = None) -> None:
         for q, ids, ms, messages in planned:
             response = client.generate(messages)
             cited = cite_answer(response.text, [by_id[i] for i in ids], abstain)
-            append_record(out, answer_record(q, args.setup, ids, ms, response, cited))
+            record = answer_record(q, args.setup, ids, ms, response, cited)
+            if commit is not None:
+                record["commit"] = commit  # the frozen state of the test run
+            append_record(out, record)
             print(
                 f"  {q['id']}: {'abstained' if cited.abstained else 'answered'}"
                 f"{' (cached)' if response.cached else ''}"
