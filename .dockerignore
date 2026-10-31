@@ -1,0 +1,11 @@
+# Only what the image needs. .env (keys), cache/, logs/, .venv/ and data/ (except the committed
+# manifest) never enter it.
+*
+!pyproject.toml
+!README.md
+!configs/
+!.streamlit/
+!data/corpus_manifest.yaml
+!src/
+**/__pycache__
+**/*.egg-info

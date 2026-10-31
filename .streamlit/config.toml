@@ -1,0 +1,27 @@
+# Streamlit settings for the PaperRAG UI (read when `streamlit run` starts from the repo root).
+# Finer styling (sidebar, cards, badges, pills) is in src/ragpapers/ui/style.css, which also
+# loads the Inter font from Google Fonts.
+[theme]
+base = "light"
+primaryColor = "#4338ca"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f8fafc"
+textColor = "#111827"
+linkColor = "#4338ca"
+borderColor = "#e5e7eb"
+showWidgetBorder = true
+baseRadius = "12px"
+font = "Inter, system-ui, sans-serif"
+headingFont = "Inter, system-ui, sans-serif"
+
+[theme.sidebar]
+backgroundColor = "#24285e"
+secondaryBackgroundColor = "#2f3478"
+textColor = "#ffffff"
+borderColor = "#2f3478"
+
+[client]
+toolbarMode = "minimal"
+
+[browser]
+gatherUsageStats = false

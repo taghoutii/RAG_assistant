@@ -19,8 +19,8 @@ from ragpapers.generation.prompt import build_messages
 from ragpapers.retrieval.pipeline import elapsed_ms, first_stage, load_indexes, rerank_top
 
 
-def retrieve(question: str, indexes: dict, config: dict, reranker=None) -> tuple[list, dict]:
-    """The top `context_k` chunks for the question, and the retrieval latencies in ms."""
+def retrieve(question: str, indexes: dict, config: dict, reranker=None) -> tuple[list, dict, dict]:
+    """The top `context_k` chunks, the retrieval latencies in ms, and the full rankings."""
     ret, k = config["retrieval"], config["generation"]["context_k"]
     rankings, ms = first_stage(question, indexes, ret["fusion_depth"], ret["rrf_k"])
     ids = rankings["hybrid"]
@@ -28,18 +28,23 @@ def retrieve(question: str, indexes: dict, config: dict, reranker=None) -> tuple
         ids, ms["rerank"] = rerank_top(
             question, ids, ret["rerank_depth"], indexes["by_id"], reranker
         )
-    return [indexes["by_id"][i] for i in ids[:k]], ms
+    return [indexes["by_id"][i] for i in ids[:k]], ms, rankings
 
 
 def answer_question(question: str, indexes: dict, client, config: dict, reranker=None) -> dict:
-    """Retrieved chunks, the model response, the cited answer and the latencies of one question."""
-    chunks, ms = retrieve(question, indexes, config, reranker)
+    """Retrieved chunks, the model response, the cited answer and the latencies of one question.
+
+    "rankings" are first_stage's rankings (BM25, dense, hybrid and the RRF scores), kept so
+    the API can report why each chunk was retrieved.
+    """
+    chunks, ms, rankings = retrieve(question, indexes, config, reranker)
     start = time.perf_counter()
     response = client.generate(build_messages(question, chunks, config["abstention_text"]))
     ms["generation_call"] = elapsed_ms(start)  # ~0 when served from the cache
     return {
         "question": question,
         "chunks": chunks,
+        "rankings": rankings,
         "response": response,
         "cited": cite_answer(response.text, chunks, config["abstention_text"]),
         "latency_ms": ms,

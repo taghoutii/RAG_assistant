@@ -52,7 +52,8 @@ def first_stage(
     """Rankings of chunk IDs {"bm25", "dense", "hybrid"} and stage latencies in ms.
 
     "hybrid" is the full RRF fusion of BM25 top-`fusion_depth` and dense top-`fusion_depth`
-    (up to 2 x fusion_depth IDs, best first).
+    (up to 2 x fusion_depth IDs, best first). "hybrid_scores" maps each of those IDs to its
+    RRF score (for the query log; it does not change any ranking).
     """
     rankings, ms = {}, {}
 
@@ -68,6 +69,7 @@ def first_stage(
     start = time.perf_counter()
     fused = reciprocal_rank_fusion([rankings["bm25"], rankings["dense"]], rrf_k=rrf_k)
     rankings["hybrid"] = [chunk_id for chunk_id, _ in fused]
+    rankings["hybrid_scores"] = dict(fused)
     ms["fusion"] = elapsed_ms(start)
 
     return rankings, ms
