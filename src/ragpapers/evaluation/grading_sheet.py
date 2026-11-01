@@ -22,10 +22,10 @@ def grades_template(answers: list[dict]) -> str:
 
 def make_sheet(answers: list[dict], questions: dict, by_id: dict) -> str:
     out = [
-        "# Judge validation: blind grading sheet",
+        "# Judge validation: grading sheet",
         "",
         f"{len(answers)} hybrid dev answers (openai/gpt-oss-120b, k = 8). For each answer, "
-        "write 0 or 1 per metric in eval/human_grades.jsonl. Abstentions need no grades.",
+        "write 0 or 1 per metric in eval/reference_grades.jsonl. Abstentions need no grades.",
         "",
         "Grade all of **Part 1** before reading Part 2: Part 2 shows the reference answers.",
         "",
@@ -91,7 +91,7 @@ def main() -> None:
     sheet.write_text(make_sheet(answers, questions, by_id), encoding="utf-8", newline="\n")
     print(f"Wrote {sheet}")
 
-    grades = REPO_ROOT / jv["human_grades"]
+    grades = REPO_ROOT / jv["reference_grades"]
     if grades.exists():
         print(f"Kept the existing {grades} (never overwritten)")
     else:

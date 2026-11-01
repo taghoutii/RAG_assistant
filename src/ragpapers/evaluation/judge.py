@@ -21,8 +21,8 @@ every label can be traced back to the claims behind it:
 Abstentions get no judge labels (abstention accuracy is scored by rule). Answered
 unanswerable questions get the three grounding labels but no correctness label.
 
-Blind grading: on the validation setup (hybrid, dev) the judge refuses to run until the
-user's grades of the 20 sample answers are complete in eval/human_grades.jsonl.
+Grades first: on the validation setup (hybrid, dev) the judge refuses to run until the
+reference grades of the 20 sample answers are complete in eval/reference_grades.jsonl.
 """
 
 import argparse
@@ -38,7 +38,7 @@ from ragpapers.generation.prompt import format_context
 from ragpapers.generation.providers import Message
 from ragpapers.generation.runlog import append_record, load_done
 
-# What each label means, worded the same for the user's grading sheet and the judge.
+# What each label means, worded the same for the grading sheet and the judge.
 RUBRIC = {
     "faithfulness": "1 if every factual claim in the answer is supported by the context "
     "passages (taken together), else 0. Use only the passages, not outside knowledge.",
@@ -243,7 +243,7 @@ def judge_answer(answer: dict, question: dict, chunks: list[dict], client) -> di
     return {**record, "labels": labels}
 
 
-# --- files and blind-grading guard --------------------------------------------------------------
+# --- files and grades-first guard ---------------------------------------------------------------
 
 
 def answers_path(config: dict, split: str, setup: str):
@@ -257,8 +257,8 @@ def judgments_path(config: dict, split: str, setup: str, model: str):
     return REPO_ROOT / config["paths"]["results_dir"] / "generation" / split / name
 
 
-def load_human_grades(path) -> dict[str, dict]:
-    """The user's grades by question ID. Strict: a malformed line is an error, not skipped."""
+def load_reference_grades(path) -> dict[str, dict]:
+    """The reference grades by question ID. Strict: a malformed line is an error, not skipped."""
     if not path.exists():
         return {}
     grades = {}
@@ -291,17 +291,17 @@ def sample_ids(config: dict) -> list[str]:
     return [qid for ids in sample["questions"].values() for qid in ids]
 
 
-def check_blind(config: dict, split: str, setup: str) -> None:
-    """Refuse to judge the validation answers before the user's grades are recorded."""
+def require_reference_grades(config: dict, split: str, setup: str) -> None:
+    """Refuse to judge the validation answers before their reference grades are recorded."""
     jv = config["judge_validation"]
     if split != "dev" or setup != jv["setup"]:
         return
-    grades = load_human_grades(REPO_ROOT / jv["human_grades"])
+    grades = load_reference_grades(REPO_ROOT / jv["reference_grades"])
     missing = missing_grades(grades, sample_ids(config), jv["metrics"])
     if missing:
         raise SystemExit(
-            f"Blind grading: {len(missing)} of the 20 sample answers are not graded yet in "
-            f"{jv['human_grades']} ({', '.join(missing[:5])}...). The judge runs after."
+            f"Grades first: {len(missing)} of the 20 sample answers are not graded yet in "
+            f"{jv['reference_grades']} ({', '.join(missing[:5])}...). The judge runs after."
         )
 
 
@@ -318,7 +318,7 @@ def main(argv: list[str] | None = None) -> None:
 
     commit = require_final_flag(args.split, args.final_test_run)  # None on dev
     config = load_config()
-    check_blind(config, args.split, args.setup)
+    require_reference_grades(config, args.split, args.setup)
     answers = list(load_done(answers_path(config, args.split, args.setup)).values())
     if not answers:
         raise SystemExit("no answers yet: run ragpapers.evaluation.run_generation first")

@@ -21,6 +21,10 @@ any judge label of 0). Their main causes:
 | Generation: citation points at the wrong chunk | q505 | 1 |
 | Judge strictness: correct, cited answer marked 0 for a minor omission or a split claim | q112, q310, q403, q407, q506 | 5 |
 
+Retrieval misses are partly a measurement effect: a chunk counts as relevant only if it
+contains a gold quote or an approved alternative wording. A check on dev found that, of plain
+hybrid's 15 missing dev quotes, 10 had the same fact, worded differently, in the top 10.
+
 Retrieval misses dominate. The generator behaves as instructed when evidence is missing:
 on test, all 7 unanswerable questions abstained, and every false abstention on an answerable
 question (5 of 29) happened with no gold evidence in the top 8. Only one test answer states

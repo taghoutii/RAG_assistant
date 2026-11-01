@@ -1,5 +1,5 @@
 {
- "purpose": "Judge validation: the user hand-grades the answers to these questions blind, before any judge grade is shown.",
+ "purpose": "Judge validation: the answers to these questions get reference grades, fixed before any judge label is seen.",
  "split": "dev",
  "seed": 42,
  "n": 20,

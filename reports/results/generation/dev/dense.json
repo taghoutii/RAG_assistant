@@ -1,7 +1,7 @@
 {
  "name": "dense",
  "phase": "generation/dev",
- "created_at": "2026-10-27T22:22:28+00:00",
+ "created_at": "2026-11-01T18:39:20+00:00",
  "split": "dev",
  "n_questions": 37,
  "setup": {
@@ -19,7 +19,7 @@
     "n": 19,
     "kappa": 1.0,
     "raw": 1.0,
-    "human_majority_share": 0.8947368421052632,
+    "reference_majority_share": 0.8947368421052632,
     "skewed": true,
     "score": 1.0,
     "passed": true
@@ -28,7 +28,7 @@
     "n": 19,
     "kappa": 0.518987341772152,
     "raw": 0.7894736842105263,
-    "human_majority_share": 0.631578947368421,
+    "reference_majority_share": 0.631578947368421,
     "skewed": false,
     "score": 0.518987341772152,
     "passed": false
@@ -37,7 +37,7 @@
     "n": 19,
     "kappa": null,
     "raw": 1.0,
-    "human_majority_share": 1.0,
+    "reference_majority_share": 1.0,
     "skewed": true,
     "score": 1.0,
     "passed": true
@@ -46,7 +46,7 @@
     "n": 19,
     "kappa": 0.46478873239436624,
     "raw": 0.7894736842105263,
-    "human_majority_share": 0.7894736842105263,
+    "reference_majority_share": 0.7894736842105263,
     "skewed": false,
     "score": 0.46478873239436624,
     "passed": false
