@@ -11,7 +11,7 @@ from ragpapers.evaluation.judge import (
     grounding_labels,
     grounding_messages,
     judge_answer,
-    load_human_grades,
+    load_reference_grades,
     missing_grades,
     parse_json,
 )
@@ -199,7 +199,7 @@ def test_judge_requests_use_json_mode():
     assert all(r.json_output for r in fake.requests)
 
 
-# --- human grades and the blind guard -----------------------------------------------------------
+# --- reference grades and the grades-first guard ----------------------------------------------
 
 
 def grade(qid, **labels):
@@ -223,27 +223,27 @@ def test_missing_grades():
     assert missing_grades(grades, ["q1", "q2", "q3", "q4"]) == ["q2", "q4"]
 
 
-def test_load_human_grades_is_strict(tmp_path):
+def test_load_reference_grades_is_strict(tmp_path):
     path = tmp_path / "g.jsonl"
     path.write_text(json.dumps(grade("q1")) + "\n" + json.dumps(grade("q2", relevance=2)) + "\n")
     with pytest.raises(ValueError, match="line 2"):
-        load_human_grades(path)
+        load_reference_grades(path)
     path.write_text(json.dumps(grade("q1")) + "\n{oops\n")
     with pytest.raises(ValueError, match="line 2"):
-        load_human_grades(path)
+        load_reference_grades(path)
 
 
-def test_blind_guard_refuses_the_validation_setup_until_graded(tmp_path, monkeypatch):
+def test_grades_first_guard_refuses_the_validation_setup_until_graded(tmp_path, monkeypatch):
     config = load_config()
     config["judge_validation"] = config["judge_validation"] | {
-        "human_grades": str(tmp_path / "g.jsonl")
+        "reference_grades": str(tmp_path / "g.jsonl")
     }
-    with pytest.raises(SystemExit, match="Blind grading"):
-        judge.check_blind(config, "dev", "hybrid")
-    judge.check_blind(config, "dev", "bm25")  # other setups are not the graded answers
+    with pytest.raises(SystemExit, match="Grades first"):
+        judge.require_reference_grades(config, "dev", "hybrid")
+    judge.require_reference_grades(config, "dev", "bm25")  # other setups are not the graded answers
     path = tmp_path / "g.jsonl"
     path.write_text("".join(json.dumps(grade(i)) + "\n" for i in judge.sample_ids(config)))
-    judge.check_blind(config, "dev", "hybrid")  # complete grades: allowed
+    judge.require_reference_grades(config, "dev", "hybrid")  # complete grades: allowed
 
 
 def test_sample_has_the_20_frozen_questions():
@@ -253,7 +253,7 @@ def test_sample_has_the_20_frozen_questions():
 
 def test_sample_only_judges_just_the_validation_answers(tmp_path, monkeypatch, capsys):
     answers = [{"id": i, "abstained": True} for i in ("q101", "q102", "q999")]
-    monkeypatch.setattr(judge, "check_blind", lambda *a: None)
+    monkeypatch.setattr(judge, "require_reference_grades", lambda *a: None)
     monkeypatch.setattr(
         judge,
         "load_done",
@@ -302,7 +302,7 @@ def test_object_inside_prose_is_still_found():
 
 def test_cli_uses_the_configured_judge(monkeypatch, capsys):
     roles = []
-    monkeypatch.setattr(judge, "check_blind", lambda *a: None)
+    monkeypatch.setattr(judge, "require_reference_grades", lambda *a: None)
     monkeypatch.setattr(
         judge,
         "load_done",

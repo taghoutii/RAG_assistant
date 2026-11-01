@@ -27,7 +27,7 @@ HEADERS = {
     "relevance": "Relevance",
     "correctness": "Correctness",
 }
-RELIABLE = ("faithfulness", "relevance")  # the user's reporting rule, from the agreement check
+RELIABLE = ("faithfulness", "relevance")  # the reporting rule, from the agreement check
 SETUP_NAMES = {
     "bm25": "BM25",
     "dense": "Dense",
@@ -139,7 +139,7 @@ def make_report(results: dict, agreement: dict, meta: dict) -> str:
     )
     lines += [
         "",
-        f"Judge agreement: the judge's labels vs the user's blind grades of {meta['n_graded']} "
+        f"Judge agreement: the judge's labels vs the reference grades of {meta['n_graded']} "
         "hybrid dev answers (Cohen's kappa and raw agreement). Faithfulness and relevance are "
         "reliable; citation correctness and correctness fall below the kappa 0.6 threshold and "
         "are indicative only. Abstention accuracy is scored by rule, not by the judge.",

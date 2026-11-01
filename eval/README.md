@@ -8,7 +8,7 @@ chosen to suit it.
 |---|---|
 | `questions.jsonl` | The evaluation set: one question per line, each one reviewed before inclusion. |
 | `splits.json` | The frozen dev/test split (generated once, never edited). |
-| `judge_sample.json` | The 20 dev questions whose answers are hand-graded to validate the LLM judge (drawn with a fixed seed before any judging). |
+| `judge_sample.json` | The 20 dev questions whose answers have reference grades, used to validate the LLM judge (drawn with a fixed seed before any judging). |
 
 ## Format
 
@@ -42,7 +42,7 @@ A quote is how the evaluation recognises a relevant chunk, whatever the chunking
 
 ## Alternative quotes
 
-An evidence item may also list up to 3 `alternatives`: other verbatim spans of the **same paper** that state the **same fact**, so that a chunk stating it in other words also counts (once per item; recall still divides by the number of items). They were chosen blind to retrieval output, from candidates drawn only from the paper's text and the question's reference answer, and selected by Claude Code under a fixed strict same-fact rule, then spot-checked by the project author. The validator checks every alternative like a quote.
+An evidence item may also list up to 3 `alternatives`: other verbatim spans of the **same paper** that state the **same fact**, so that a chunk stating it in other words also counts (once per item; recall still divides by the number of items). They were drawn only from the paper's text and the question's reference answer, selected under a fixed same-fact rule, blind to retrieval output, then spot-checked. The validator checks every alternative like a quote.
 
 ## Question mix
 

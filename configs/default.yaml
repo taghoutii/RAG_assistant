@@ -92,7 +92,7 @@ generation:
   context_k: 8            # top-k plain-hybrid chunks sent to the generator
 
 # LLM-as-judge (Phase 6). Chosen by a rule fixed before any grading: Gemini 3.5 Flash-Lite was
-# tested first and failed the agreement threshold against the user's 20 hand grades, so the
+# tested first and failed the agreement threshold against the 20 reference grades, so the
 # predefined fallback, qwen, was kept (its agreement: reports/results/judge_validation.json).
 # Same provider as the generator but a different model family; own per-model Groq budget.
 judge:
@@ -129,12 +129,12 @@ generation_eval:
   chars_per_token: 3.93     # prompt-size estimate before a run (calibrated on real Groq calls)
   bootstrap_samples: 1000
 
-# Judge validation: the user's blind grades of 20 hybrid dev answers vs the judge's.
-# Poor = on ANY metric, kappa < kappa_min; if one label is > skew_share of the user's grades
+# Judge validation: the reference grades of 20 hybrid dev answers vs the judge's labels.
+# Poor = on ANY metric, kappa < kappa_min; if one label is > skew_share of the reference grades
 # on a metric, that metric uses raw agreement >= raw_min instead. Fixed before any grading.
 judge_validation:
   sample: eval/judge_sample.json
-  human_grades: eval/human_grades.jsonl
+  reference_grades: eval/reference_grades.jsonl
   grading_sheet: eval/grading/sheet.md    # gitignored: contains corpus text
   setup: hybrid
   metrics: [faithfulness, citation_correctness, relevance, correctness]
