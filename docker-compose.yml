@@ -1,0 +1,42 @@
+# docker compose up --build
+#   API: http://localhost:8000/docs    UI: http://localhost:8501
+# Build the corpus and indexes on the host first (see README); they are mounted, not copied.
+# Stop any local API run before starting: the local Qdrant index allows one process.
+services:
+  api:
+    build: .
+    image: ragpapers:latest
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env  # GROQ_API_KEY; without it /health says "degraded" and /ask answers 503
+        required: false
+    volumes:
+      - ./data:/app/data:ro
+      - ./data/index/qdrant:/app/data/index/qdrant  # writable: Qdrant keeps its lock file here
+      - ./cache:/app/cache  # the LLM response cache: questions asked before cost no API call
+      - ./logs:/app/logs  # logs/queries.jsonl
+
+  ui:
+    image: ragpapers:latest  # the image the api service builds (one build, one tag)
+    pull_policy: never  # local image: never look for it on Docker Hub
+    command:
+      - streamlit
+      - run
+      - src/ragpapers/ui/app.py
+      - --server.address=0.0.0.0
+      - --server.port=8501
+      - --server.headless=true
+      - --browser.gatherUsageStats=false
+    ports:
+      - "8501:8501"
+    environment:
+      RAG_API_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health', timeout=4)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

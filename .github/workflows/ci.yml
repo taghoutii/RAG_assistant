@@ -36,3 +36,22 @@ jobs:
 
       - name: Tests
         run: pytest
+
+  docker:
+    # The image must keep building; the data is mounted at run time, so only imports and the
+    # frozen-config guard are checked here.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the image
+        run: docker build -t ragpapers .
+
+      - name: Smoke test
+        run: >
+          docker run --rm ragpapers python -c
+          "from ragpapers.api.app import app;
+          from ragpapers.api.service import check_frozen_config;
+          from ragpapers.config import load_config;
+          import ragpapers.ui.api_client;
+          check_frozen_config(load_config()); print('image ok')"

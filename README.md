@@ -69,11 +69,36 @@ Latencies measured on an Intel i7-11370H laptop, CPU only.
 
 Limits as listed on the free-tier consoles in October 2026; they change, so check yours. All values are in `configs/default.yaml`.
 
+## Serving (API + UI)
+
+The served system is the evaluated one: plain hybrid retrieval, the top 8 chunks, `openai/gpt-oss-120b` at temperature 0. The API refuses to start if `configs/default.yaml` differs from it, and `/ask` takes no options. Needs the corpus and indexes built locally and `GROQ_API_KEY` in `.env`.
+
+```powershell
+# Terminal 1: the API (interactive docs at http://localhost:8000/docs)
+uvicorn ragpapers.api.app:app --port 8000
+
+# Terminal 2: the UI (http://localhost:8501)
+streamlit run src/ragpapers/ui/app.py
+```
+
+- `POST /ask` with `{"question": "..."}` returns the answer, its citations (title, section, link), the 8 retrieved chunks with their RRF scores and BM25 / dense ranks, and the latencies. `GET /health` reports what is loaded, without calling the LLM.
+- Every request is appended to `logs/queries.jsonl` (gitignored): the question, retrieved chunk IDs, scores, citations and latencies.
+- The UI shows the answer and its cited sources only; the full retrieval stays in the API response and the log.
+
+With Docker Desktop running, the same two services in containers (the data, cache and logs are mounted from the repo, not copied into the image):
+
+```powershell
+docker compose up --build
+```
+
+The local Qdrant index can be opened by one process only, so stop a local API before starting the containers, and the other way round.
+
 ## Checks
 
 ```powershell
 ruff check .
 ruff format --check .
 pytest
+pytest -m parity   # local only: the served system reproduces every hybrid dev answer (from the cache, no API calls)
 pre-commit run --all-files
 ```

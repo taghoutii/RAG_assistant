@@ -1,0 +1,209 @@
+/* PaperRAG styling on top of .streamlit/config.toml.
+   Contrast (WCAG): #111827 on white 17.7:1, #4b5563 7.6:1, #6b7280 4.8:1; white on #4338ca
+   7.9:1, on #0f766e 5.5:1, on #6d28d9 7.1:1; #3730a3 on #eef2ff 9.4:1; #9a3412 on #ffedd5
+   6.9:1; on the #24285e sidebar: white 14:1, #c7cbf2 9:1; topic pills >= 7:1. */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+
+:root {
+  --text: #111827;
+  --text-2: #4b5563;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --primary: #4338ca;
+  --primary-dark: #3730a3;
+  --primary-darker: #312e81;
+  --indigo-50: #eef2ff;
+  --indigo-200: #c7d2fe;
+  --orange: #f97316;
+  --orange-ink: #9a3412;
+  --orange-50: #fff7ed;
+  --orange-100: #ffedd5;
+  --navy: #24285e;
+  --navy-2: #2f3478;
+  --lavender: #c7cbf2;
+  --shadow: 0 1px 3px rgba(17, 24, 39, 0.06);
+}
+
+.stApp, .stApp input, .stApp button, .stApp textarea {
+  font-family: "Inter", system-ui, sans-serif;
+}
+.block-container { max-width: 880px; padding: 44px 56px; }
+/* Streamlit's header (with the sidebar toggle) sits over the top of the page: make it
+   transparent and keep the content below it whether the sidebar is open or collapsed. */
+[data-testid="stHeader"] { background: transparent; }
+.stMainBlockContainer, .block-container { padding-top: calc(3.75rem + 32px); }
+
+/* ---- Sidebar -------------------------------------------------------------------------- */
+[data-testid="stSidebar"] { background: var(--navy); }
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] { color: #ffffff; }
+.brand-row { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+.brand-icon {
+  width: 42px; height: 42px; border-radius: 12px; background: var(--orange);
+  color: var(--navy); display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.brand-icon svg { width: 22px; height: 22px; }
+.brand-name { font-size: 19px; font-weight: 700; color: #ffffff; line-height: 1.2; }
+.brand-sub { font-size: 12px; color: var(--lavender); }
+.eyebrow {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--lavender);
+}
+.corpus-card { background: var(--navy-2); border-radius: 12px; padding: 16px; margin-bottom: 24px; }
+.corpus-count { font-size: 30px; font-weight: 800; color: #ffffff; line-height: 1.2; margin: 4px 0 2px; }
+.corpus-sub { font-size: 13px; color: var(--lavender); }
+.topics-label { margin-bottom: 8px; }
+.topic-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+.topic-dot { width: 10px; height: 10px; border-radius: 999px; flex-shrink: 0; }
+.topic-name { color: #ffffff; font-size: 14px; flex: 1; }
+.topic-count { color: var(--lavender); font-size: 14px; font-variant-numeric: tabular-nums; }
+
+/* ---- Hero ----------------------------------------------------------------------------- */
+.hero-pill {
+  display: inline-block; font-size: 12px; font-weight: 600; color: var(--orange-ink);
+  background: var(--orange-100); border-radius: 999px; padding: 4px 12px; margin-bottom: 14px;
+}
+.hero-title {
+  font-size: 34px; font-weight: 800; color: var(--text); letter-spacing: -0.02em;
+  line-height: 1.2; margin-bottom: 10px;
+}
+.hero-sub { font-size: 16px; color: var(--text-2); line-height: 1.6; margin-bottom: 24px; }
+
+/* ---- Cards (shared) ------------------------------------------------------------------- */
+.st-key-question_card, .st-key-answer_card, .st-key-abstain_card, [class*="st-key-source_"] {
+  background: #ffffff; border: 1px solid var(--border); border-radius: 16px;
+  box-shadow: var(--shadow);
+}
+.st-key-question_card { padding: 20px 22px; }
+.st-key-answer_card, .st-key-abstain_card {
+  padding: 0; gap: 0; overflow: visible; height: auto; max-height: none;
+}
+.st-key-answer_card [data-testid="stMarkdownContainer"],
+.st-key-abstain_card [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
+[class*="st-key-source_"] { padding: 16px 20px; gap: 0; }
+.stApp [data-testid="stMarkdownContainer"] p:last-child { margin-bottom: 0; }
+
+/* ---- Question card -------------------------------------------------------------------- */
+.q-label { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+.st-key-question_card [data-testid="stTextInputRootElement"] {
+  height: 50px; border: 2px solid var(--primary) !important; border-radius: 12px;
+  background: #ffffff;
+}
+.st-key-question_card [data-testid="stTextInputRootElement"]:focus-within {
+  box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.18);
+}
+.st-key-question_card input { font-size: 15px; color: var(--text); }
+[data-testid="stBaseButton-primaryFormSubmit"], [data-testid="stBaseButton-primary"] {
+  height: 50px; border-radius: 12px; background: var(--primary) !important;
+  border-color: var(--primary) !important; color: #ffffff !important; font-weight: 700;
+}
+[data-testid="stBaseButton-primaryFormSubmit"] p, [data-testid="stBaseButton-primary"] p {
+  color: #ffffff !important; font-weight: 700;
+}
+[data-testid="stBaseButton-primaryFormSubmit"]:hover, [data-testid="stBaseButton-primary"]:hover {
+  background: var(--primary-dark) !important; border-color: var(--primary-dark) !important;
+}
+.try-label { font-size: 12px; color: var(--muted); margin: 14px 0 8px; }
+.st-key-chips { gap: 8px; }
+.st-key-chips button {
+  border-radius: 999px; background: var(--indigo-50); border: 1px solid var(--indigo-200);
+  padding: 4px 14px; min-height: 0;
+}
+.st-key-chips button p { color: var(--primary-dark); font-size: 13px; font-weight: 500; }
+.st-key-chips button:hover { background: #e0e7ff; border-color: var(--primary); }
+.st-key-chips button:hover p { color: var(--primary-darker); }
+
+/* ---- Answer and abstention cards ------------------------------------------------------ */
+.card-header {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  gap: 6px 12px; padding: 12px 22px; border-radius: 15px 15px 0 0; /* inside the 16px card */
+}
+.card-title {
+  display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+.card-title svg { width: 17px; height: 17px; }
+.answer-header { background: var(--indigo-50); }
+.answer-header .card-title { color: var(--primary-dark); }
+.card-meta { font-size: 13px; color: var(--text-2); }
+.abstain-header { background: var(--orange-50); }
+.abstain-header .card-title { color: var(--orange-ink); }
+.st-key-answer_body { padding: 18px 22px; }
+.st-key-answer_body p, .st-key-answer_body li { font-size: 16px; line-height: 1.75; color: var(--text); }
+.card-body { padding: 18px 22px; }
+.abstain-main { font-size: 16px; color: var(--text); line-height: 1.7; margin-bottom: 8px; }
+.abstain-hint { font-size: 14px; color: var(--text-2); line-height: 1.6; }
+.card-footer {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 12px;
+  color: var(--muted); border-top: 1px solid var(--border); padding: 10px 22px 12px;
+  line-height: 1.5; white-space: normal; overflow-wrap: anywhere;
+}
+.cached-pill {
+  font-size: 11px; font-weight: 600; color: var(--orange-ink); background: var(--orange-100);
+  border-radius: 999px; padding: 2px 9px;
+}
+
+/* Citation badges (colour set per citation, white bold text) */
+.cite-badge {
+  display: inline-block; color: #ffffff; font-size: 12px; font-weight: 700;
+  min-width: 20px; padding: 0 6px; margin: 0 2px 0 4px; border-radius: 6px;
+  line-height: 20px; text-align: center; vertical-align: 1px;
+}
+
+/* ---- Sources -------------------------------------------------------------------------- */
+.sources-heading { font-size: 18px; font-weight: 700; color: var(--text); margin: 18px 0 2px; }
+.src-row { display: flex; align-items: flex-start; gap: 14px; }
+.num-badge {
+  width: 34px; height: 34px; border-radius: 10px; color: #ffffff; font-weight: 700;
+  font-size: 15px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.src-main { flex: 1; min-width: 0; }
+.src-title { font-size: 15px; font-weight: 600; color: var(--text); line-height: 1.4; }
+.src-year { color: var(--muted); font-weight: 400; }
+.src-section { font-size: 13px; color: var(--text-2); margin: 3px 0 8px; }
+.topic-pill {
+  display: inline-block; font-size: 12px; font-weight: 600; border-radius: 999px;
+  padding: 2px 10px;
+}
+.arxiv-btn {
+  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; white-space: nowrap;
+  font-size: 13px; font-weight: 600; color: var(--primary) !important;
+  background: var(--indigo-50); border-radius: 10px; padding: 8px 12px; text-decoration: none !important;
+}
+.arxiv-btn svg { width: 15px; height: 15px; }
+.arxiv-btn:hover { background: #e0e7ff; color: var(--primary-darker) !important; }
+.card-divider { border-top: 1px solid var(--border); margin: 14px 0 6px; }
+
+/* Passage expander: plain toggle, label follows the open state */
+[class*="st-key-source_"] [data-testid="stExpander"] details {
+  border: none; background: transparent;
+}
+[class*="st-key-source_"] [data-testid="stExpander"] summary { padding: 6px 0; }
+[class*="st-key-source_"] [data-testid="stExpander"] summary p { display: none; }
+[class*="st-key-source_"] [data-testid="stExpander"] summary::after {
+  font-size: 13px; font-weight: 600; color: var(--primary);
+}
+[class*="st-key-source_"] details[open] > summary::after { content: "Hide passage"; }
+[class*="st-key-source_"] details:not([open]) > summary::after { content: "Show passage"; }
+[class*="st-key-source_"] [data-testid="stExpanderDetails"] { padding: 4px 0 0; }
+[class*="st-key-passage_"] {
+  background: #f8fafc; border-radius: 10px; padding: 14px 16px; gap: 0;
+}
+[class*="st-key-passage_"] p {
+  font-size: 14px; line-height: 1.65; color: #374151; margin: 0 0 8px;
+}
+[class*="st-key-passage_"] code {
+  color: #374151; background: #eef0f3; font-size: 13px; white-space: normal;
+}
+.katex { font-size: 1.05em; }
+.katex-display { overflow-x: auto; overflow-y: hidden; padding: 4px 0; } /* wide formulas scroll */
+
+/* ---- Alerts (API errors) -------------------------------------------------------------- */
+[data-testid="stAlert"] { border-radius: 12px; }
+[data-testid="stAlert"] [data-testid="stMarkdownContainer"] p { color: var(--text) !important; }
+
+/* ---- Small screens -------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  .stMainBlockContainer, .block-container { padding: calc(3.75rem + 16px) 16px 32px; }
+  .hero-title { font-size: 28px; }
+  .src-row { flex-wrap: wrap; }
+}
