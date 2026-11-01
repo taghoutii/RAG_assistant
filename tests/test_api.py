@@ -7,7 +7,12 @@ from fastapi.testclient import TestClient
 from ragpapers.api import service as service_module
 from ragpapers.api.app import create_app
 from ragpapers.api.querylog import QueryLog, read_log
-from ragpapers.api.service import FrozenConfigError, RagService, check_frozen_config
+from ragpapers.api.service import (
+    WARM_UP_QUERY,
+    FrozenConfigError,
+    RagService,
+    check_frozen_config,
+)
 from ragpapers.config import load_config
 from ragpapers.generation import answer
 from ragpapers.generation.client import LLMClient
@@ -183,6 +188,50 @@ def test_no_generator_gives_503(fake_retrieval, tmp_path):
     assert r.status_code == 503
     assert "GROQ_API_KEY" in r.json()["detail"]
     assert read_log(service.log.path)[0]["error"].startswith("ServiceUnavailable")
+
+
+# --- startup warm-up ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def retrieval_calls(fake_retrieval, monkeypatch):
+    """The queries first_stage receives (on top of the fake retrieval)."""
+    calls = []
+    fake = answer.first_stage
+
+    def spy(question, *args, **kwargs):
+        calls.append(question)
+        return fake(question, *args, **kwargs)
+
+    monkeypatch.setattr(answer, "first_stage", spy)
+    return calls
+
+
+def test_startup_warms_up_retrieval_once_without_the_llm_or_the_log(
+    fake_retrieval, retrieval_calls, tmp_path
+):
+    service, fake = make_service(fake_retrieval, tmp_path)
+    with api(service) as client:
+        assert retrieval_calls == [WARM_UP_QUERY]  # before any request
+        assert client.get("/health").status_code == 200
+    assert fake.requests == []  # no LLM call
+    assert read_log(service.log.path) == []  # not a user request: not logged
+
+
+def test_the_warm_up_runs_before_the_first_question(fake_retrieval, retrieval_calls, tmp_path):
+    service, _ = make_service(fake_retrieval, tmp_path, ["A [1]."])
+    with api(service) as client:
+        client.post("/ask", json={"question": "Q?"})
+    assert retrieval_calls == [WARM_UP_QUERY, "Q?"]
+    assert [r["question"] for r in read_log(service.log.path)] == ["Q?"]
+
+
+def test_warm_up_returns_its_duration_and_works_without_a_generator(
+    fake_retrieval, retrieval_calls, tmp_path
+):
+    service, _ = make_service(fake_retrieval, tmp_path, client_error="GROQ_API_KEY is not set")
+    assert service.warm_up() >= 0
+    assert retrieval_calls == [WARM_UP_QUERY]
 
 
 # --- query log ---------------------------------------------------------------------------------

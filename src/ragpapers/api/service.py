@@ -23,7 +23,7 @@ import requests
 
 from ragpapers.api.querylog import QueryLog
 from ragpapers.config import REPO_ROOT
-from ragpapers.generation.answer import answer_question
+from ragpapers.generation.answer import answer_question, retrieve
 from ragpapers.generation.client import DailyQuotaReached, make_client
 from ragpapers.generation.providers import ProviderError, RateLimited, TransientError
 from ragpapers.retrieval.pipeline import elapsed_ms, load_indexes
@@ -48,6 +48,9 @@ FROZEN = {
     ("abstention_text",): "I couldn't find sufficient evidence in the available sources.",
 }
 EVALUATED_COMMIT = "99d8e99"
+# Retrieved once at startup so the first real question does not pay for loading the embedding
+# model (5-11 s on CPU). Any text works: only the models' first use matters.
+WARM_UP_QUERY = "warm-up query: attention in transformers"
 SETUP = "hybrid"  # the retrieval setup name used in the evaluation reports
 
 _MISSING = object()
@@ -151,6 +154,17 @@ class RagService:
             client, error = None, str(err)
         log = QueryLog(REPO_ROOT / config["paths"]["query_log"])
         return cls(config, indexes, client, log, error)
+
+    def warm_up(self) -> float:
+        """Run retrieval once on WARM_UP_QUERY and return how long it took (ms).
+
+        It loads the embedding model and makes the first Qdrant query, exactly as /ask's
+        retrieval does. No LLM call and no query-log line: it is not a user request.
+        """
+        start = time.perf_counter()
+        with self.lock:
+            retrieve(WARM_UP_QUERY, self.indexes, self.config)
+        return elapsed_ms(start)
 
     def close(self) -> None:
         """Release the local Qdrant lock."""

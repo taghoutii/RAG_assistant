@@ -1,5 +1,4 @@
-"""Build Table
-Per question:
+"""Build Table, per question:
     abstention_accuracy   all questions, by rule: abstained if the question is unanswerable
     faithfulness, citation_correctness, relevance
                           answered questions (abstentions have no claims), judge labels

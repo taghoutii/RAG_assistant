@@ -18,8 +18,8 @@ services:
       - ./logs:/app/logs  # logs/queries.jsonl
 
   ui:
-    build: .
-    image: ragpapers:latest
+    image: ragpapers:latest  # the image the api service builds (one build, one tag)
+    pull_policy: never  # local image: never look for it on Docker Hub
     command:
       - streamlit
       - run

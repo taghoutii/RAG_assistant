@@ -6,10 +6,12 @@ then open http://localhost:8000/docs. Use ONE worker: the local Qdrant index can
 by a single process only.
 
 The indexes and the generator are loaded once at startup (the lifespan below), not per
-request. Errors: 422 invalid question, 503 no API key or daily quota used up, 502 the
-generator API failed after its retries.
+request, and one warm-up retrieval loads the embedding model before the first question.
+Errors: 422 invalid question, 503 no API key or daily quota used up, 502 the generator API
+failed after its retries.
 """
 
+import logging
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 
@@ -18,6 +20,8 @@ from fastapi import FastAPI, HTTPException, Request
 from ragpapers.api.schemas import AskRequest, AskResponse, Health
 from ragpapers.api.service import GeneratorFailed, RagService, ServiceUnavailable
 from ragpapers.config import load_config
+
+logger = logging.getLogger("uvicorn.error")  # uvicorn's logger: shown in the server output
 
 
 def default_service() -> RagService:
@@ -30,6 +34,10 @@ def create_app(service_factory: Callable[[], RagService] = default_service) -> F
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.service = service_factory()
+        # Warm-up before serving: /health answers only after it, so Docker's healthcheck and
+        # the first user both see a warm system.
+        warm_ms = app.state.service.warm_up()
+        logger.info("Warm-up retrieval done in %.0f ms (no LLM call, not logged)", warm_ms)
         try:
             yield
         finally:
